@@ -1,0 +1,2354 @@
+'use strict';
+
+/**
+ * ==============================================
+ * Sepehr Meeting - Configuration File - Configuration File
+ * ==============================================
+ *
+ * This file contains all configurable settings for the Sepehr Meeting application.
+ * Environment variables can override most settings (see each section for details).
+ *
+ * Structure:
+ * 1. Core System Configuration
+ * 2. Server Settings
+ * 3. Media Handling
+ * 4. Security & Authentication
+ * 5. API Configuration
+ * 6. Third-Party Integrations
+ * 7. UI/UX Customization
+ * 8. Feature Flags
+ * 9. Mediasoup (WebRTC) Settings
+ */
+
+const dotenv = require('dotenv').config();
+const packageJson = require('../../package.json');
+const { parseHostUsers } = require('./HostUsers');
+const os = require('os');
+const fs = require('fs');
+const splitChar = ',';
+
+// ==============================================
+// 1. Environment Detection & System Configuration
+// ==============================================
+
+const PLATFORM = os.platform();
+const IS_DOCKER = fs.existsSync('/.dockerenv');
+const ENVIRONMENT = process.env.NODE_ENV || 'development';
+const ANNOUNCED_IP = process.env.SFU_ANNOUNCED_IP || '';
+const LISTEN_IP = process.env.SFU_LISTEN_IP || '0.0.0.0';
+const IPv4 = getIPv4();
+
+// ==============================================
+// 2. WebRTC Port Configuration
+// ==============================================
+
+const RTC_MIN_PORT = parseInt(process.env.SFU_MIN_PORT) || 40000;
+const RTC_MAX_PORT = parseInt(process.env.SFU_MAX_PORT) || 40100;
+const NUM_CPUS = os.cpus().length;
+const NUM_WORKERS = Math.min(process.env.SFU_NUM_WORKERS || NUM_CPUS, NUM_CPUS);
+
+// ==============================================
+// 3. FFmpeg Path Configuration
+// ==============================================
+
+const RTMP_FFMPEG_PATH = process.env.RTMP_FFMPEG_PATH || getFFmpegPath(PLATFORM);
+
+// ==============================================
+// Main Configuration Export
+// ==============================================
+
+module.exports = {
+    // ==============================================
+    // 1. Core System Configuration
+    // ==============================================
+
+    system: {
+        /**
+         * System Information
+         * ------------------
+         * - Hardware/OS details collected automatically
+         * - Used for diagnostics and optimization
+         */
+        info: {
+            environment: ENVIRONMENT,
+            os: {
+                type: os.type(),
+                release: os.release(),
+                arch: os.arch(),
+            },
+            cpu: {
+                cores: NUM_CPUS,
+                model: os.cpus()[0].model,
+            },
+            memory: {
+                total: (os.totalmem() / 1024 / 1024 / 1024).toFixed(2) + ' GB',
+            },
+            isDocker: IS_DOCKER,
+        },
+
+        /**
+         * Console Configuration
+         * ---------------------
+         * - timeZone: IANA timezone (e.g., 'Europe/Rome')
+         * - debug: Enable debug logging in non-production
+         * - colors: Colorized console output
+         * - json: Log output in JSON format
+         * - json_pretty: Pretty-print JSON logs
+         */
+        console: {
+            timeZone: 'UTC',
+            debug: ENVIRONMENT !== 'production',
+            json: process.env.LOGS_JSON === 'true',
+            json_pretty: process.env.LOGS_JSON_PRETTY === 'true',
+            colors: process.env.LOGS_JSON === 'true' ? false : true,
+        },
+
+        /**
+         * External Services Configuration
+         * -------------------------------
+         * - ip: Services to detect public IP address
+         */
+        services: {
+            ip: ['http://api.ipify.org', 'http://ipinfo.io/ip', 'http://ifconfig.me/ip'],
+        },
+    },
+
+    // ==============================================
+    // 2. Server Configuration
+    // ==============================================
+
+    server: {
+        /**
+         * Host Configuration
+         * ------------------
+         * - hostUrl: Public URL (e.g., 'https://yourdomain.com')
+         * - listen: IP and port to bind to
+         */
+        hostUrl: process.env.SERVER_HOST_URL || 'https://localhost:3010',
+        listen: {
+            ip: process.env.SERVER_LISTEN_IP || '0.0.0.0',
+            port: process.env.SERVER_LISTEN_PORT || 3010,
+        },
+
+        /**
+         * Security Settings
+         * -----------------
+         * - trustProxy: Trust X-Forwarded-* headers
+         * - ssl: SSL certificate paths
+         * - cors: Cross-origin resource sharing
+         */
+        trustProxy: process.env.TRUST_PROXY === 'true',
+        ssl: {
+            cert: process.env.SERVER_SSL_CERT || '../ssl/cert.pem',
+            key: process.env.SERVER_SSL_KEY || '../ssl/key.pem',
+        },
+        cors: {
+            origin: process.env.CORS_ORIGIN || '*',
+            methods: ['GET', 'POST'],
+        },
+
+        /**
+         * Embed (iframe) Restrictions
+         * ---------------------------
+         * Controls which origins are allowed to embed Sepehr Meeting in an <iframe>
+         * via the HTTP `Content-Security-Policy: frame-ancestors` header
+         * (also mirrored to `X-Frame-Options` when possible for legacy browsers).
+         *
+         * Behavior:
+         * - Empty / unset  → header NOT set, embedding allowed anywhere (default).
+         * - 'none'         → block ALL embedding (frame-ancestors 'none' + X-Frame-Options: DENY).
+         * - 'self'         → only same-origin embedding (frame-ancestors 'self' + X-Frame-Options: SAMEORIGIN).
+         * - list           → comma-separated origins, 'self' is always implicitly included.
+         *                    Wildcards like https://*.example.com are valid in CSP.
+         *
+         * IMPORTANT: This affects the widget too — the Sepehr Meeting widget embeds
+         * the room in an iframe on the host site, so every site that should
+         * load the widget must be listed here.
+         */
+        embed: {
+            allowedOrigins: process.env.ALLOWED_EMBED_ORIGINS
+                ? process.env.ALLOWED_EMBED_ORIGINS.split(',')
+                      .map((o) => o.trim())
+                      .filter(Boolean)
+                : [],
+        },
+    },
+
+    // ==============================================
+    // 3. Media Handling Configuration
+    // ==============================================
+
+    media: {
+        /**
+         * Recording Configuration
+         * =======================
+         * Server side recording functionality.
+         *
+         * Core Settings:
+         * ------------------------
+         * - enabled        : Enable recording functionality
+         * - uploadToS3     : Upload recording to AWS S3 bucket [true/false]
+         * - endpoint       : Leave empty ('') to store recordings locally OR
+         *   - Set to a valid URL (e.g., 'http://localhost:8080/') to:
+         *      - Push recordings to a remote server
+         *      - Store in cloud storage services
+         *      - Send to processing pipelines
+         * - dir            : Storage directory for recordings (Relative to app/src/ default: app/rec)
+         * - maxFileSize    : Maximum recording size (1GB default)
+         *
+         * Upload Security:
+         * ------------------------
+         * - uploadTokenExp : Lifetime of the per-session upload token issued on join and
+         *                    required by the /recSync* endpoints (default '24h'). Must be
+         *                    long enough to outlast the longest expected recording.
+         * - rateLimit      : Per-IP rate limit for /recSync* upload requests
+         *                    (default: 300 requests / 60s) to mitigate flooding.
+         *
+         * Docker Note:
+         * ------------
+         * - When running in Docker, ensure the recording directory exists and is properly mounted:
+         *   1. Create the directory (e.g., 'app/rec')
+         *   2. Configure as volume in docker-compose.yml
+         *   3. Set appropriate permissions
+         *   4. Restart container after changes
+         */
+        recording: {
+            enabled: process.env.RECORDING_ENABLED === 'true',
+            uploadToS3: process.env.RECORDING_UPLOAD_TO_S3 === 'true',
+            endpoint: process.env.RECORDING_ENDPOINT || '',
+            dir: process.env.RECORDING_DIR || '../rec',
+            maxFileSize: process.env.RECORDING_MAX_FILE_SIZE || 1 * 1024 * 1024 * 1024, // 1GB
+            uploadTokenExp: process.env.RECORDING_UPLOAD_TOKEN_EXP || '24h',
+            rateLimit: {
+                windowMs: parseInt(process.env.RECORDING_RATE_LIMIT_WINDOW_MS) || 60 * 1000,
+                max: parseInt(process.env.RECORDING_RATE_LIMIT_MAX) || 300,
+            },
+        },
+
+        /**
+         * RTMP Configuration
+         * =================
+         * Configures Real-Time Messaging Protocol (RTMP) for audio/video/data streaming.
+         *
+         * Core Settings
+         * ------------
+         * - enabled            : Enable/disable RTMP streaming (default: false)
+         * - fromFile           : Enable local file streaming (default: true)
+         * - fromUrl            : Enable URL streaming (default: true)
+         * - fromStream         : Enable live stream input (default: true)
+         * - maxStreams         : Maximum simultaneous streams (default: 1)
+         * - allowCustomUrl     : Allow presenters to set a custom RTMP destination (default: false)
+         * - useNodeMediaServer : Use NodeMediaServer instead of nginx-rtmp (default: true)
+         * - server             : RTMP server URL (default: 'rtmp://localhost:1935')
+         * - appName            : Application name (default: 'live')
+         * - streamKey          : Optional authentication key (auto-generated UUID if empty)
+         * - secret             : Must match NodeMediaServer's config.js (default: 'sepehrRtmpSecret')
+         * - apiSecret          : WebRTC→RTMP API secret. NO DEFAULT: set RTMP_API_SECRET to a strong,
+         *                        random value. When empty, /activeStreams, /initRTMP, /streamRTMP and
+         *                        /stopRTMP reject every request.
+         * - expirationHours    : Stream URL expiry in hours (default: 4)
+         * - dir                : Video storage directory (Relative to app/src/ default: app/rtmp)
+         * - ffmpegPath         : FFmpeg binary path (auto-detected)
+         * - platform           : Current OS platform (auto-detected)
+         *
+         * Output Quality (applies to live, file and URL streams)
+         * ------------------------------------------------------
+         * - videoQuality          : Default output profile: 480p | 720p | 1080p | 1440p (default: 720p)
+         * - maxVideoQuality       : Highest profile presenters may pick from the RTMP tab (default: 1080p)
+         * - allowQualitySelection : Let presenters pick the quality from the RTMP tab (default: true)
+         * - videoBitrate          : Video bitrate in kbps for the default profile, 0 = profile default
+         *                           (480p: 1500, 720p: 3000, 1080p: 4500, 1440p: 9000)
+         * - videoFps              : Output frame rate (default: 30, max: 60)
+         * - videoPreset           : x264 preset, ultrafast..veryslow (default: veryfast, slower = better quality, more CPU)
+         * - audioBitrate          : AAC audio bitrate in kbps (default: 128)
+         * YouTube recommends 1080p30 at 4500-9000 kbps; raise RTMP_VIDEO_QUALITY / RTMP_VIDEO_BITRATE for sharper
+         * streams (1080p needs roughly twice the CPU of 720p).
+         *
+         * Server Management
+         * ----------------
+         * NodeMediaServer (node-media-server/nms:latest):
+         *   - Start: npm run nms-start
+         *   - Stop:  npm run nms-stop
+         *   - Logs:  npm run nms-logs
+         *
+         * NGINX-RTMP (nginx-rtmp:latest):
+         *   - Start: npm run rtmp-start
+         *   - Stop:  npm run rtmp-stop
+         *   - Logs:  npm run rtmp-logs
+         *
+         * Implementation Notes:
+         * --------------------
+         * 1. For NodeMediaServer:
+         *    - Mandatory values: appName (falls back to 'live'), streamKey (auto-generated)
+         *    - URL format: rtmp://host:port/appName/streamKey?sign=expiration-token
+         *
+         * 2. Default Behavior:
+         *    - If server URL is empty, uses localhost:1935
+         *    - If no streamKey provided, generates UUIDv4
+         *    - When useNodeMediaServer=true, generates signed URLs with expiration
+         *
+         * Custom RTMP Destinations (YouTube, Facebook, Twitch)
+         * ---------------------------------------------------
+         * When allowCustomUrl=true, presenters can stream directly to external platforms
+         * from the meeting room UI. They select a preset or enter a custom RTMP URL,
+         * paste their stream key, and start streaming. Only rtmp:// and rtmps:// schemes
+         * are accepted by the server for security.
+         *
+         * YouTube Live:
+         *   - Go to https://studio.youtube.com → Go Live → Stream
+         *   - Copy your "Stream key" from the stream settings
+         *   - RTMP URL: rtmp://a.rtmp.youtube.com/live2
+         *   - Full URL: rtmp://a.rtmp.youtube.com/live2/YOUR_STREAM_KEY
+         *   - Env setup (server-wide default):
+         *       RTMP_SERVER=rtmp://a.rtmp.youtube.com
+         *       RTMP_APP_NAME=live2
+         *       RTMP_STREAM_KEY=xxxx-xxxx-xxxx-xxxx
+         *       RTMP_USE_NODE_MEDIA_SERVER=false
+         *
+         * Facebook Live:
+         *   - Go to https://www.facebook.com/live/producer → Use Stream Key
+         *   - Copy the "Stream key" shown
+         *   - RTMP URL: rtmps://live-api-s.facebook.com:443/rtmp
+         *   - Full URL: rtmps://live-api-s.facebook.com:443/rtmp/YOUR_STREAM_KEY
+         *   - Note: Facebook requires rtmps:// (TLS encrypted)
+         *   - Env setup (server-wide default):
+         *       RTMP_SERVER=rtmps://live-api-s.facebook.com:443
+         *       RTMP_APP_NAME=rtmp
+         *       RTMP_STREAM_KEY=your-facebook-stream-key
+         *       RTMP_USE_NODE_MEDIA_SERVER=false
+         *
+         * Twitch:
+         *   - Go to https://dashboard.twitch.tv/settings/stream
+         *   - Copy your "Primary Stream key"
+         *   - RTMP URL: rtmp://live.twitch.tv/app
+         *   - Full URL: rtmp://live.twitch.tv/app/YOUR_STREAM_KEY
+         *   - Env setup (server-wide default):
+         *       RTMP_SERVER=rtmp://live.twitch.tv
+         *       RTMP_APP_NAME=app
+         *       RTMP_STREAM_KEY=live_xxxxxxxxxxxx
+         *       RTMP_USE_NODE_MEDIA_SERVER=false
+         *
+         * Custom RTMP Server:
+         *   - Use any RTMP/RTMPS ingest endpoint
+         *   - Full URL: rtmp://your-server:1935/app/stream-key
+         *   - Env setup (server-wide default):
+         *       RTMP_SERVER=rtmp://your-server:1935
+         *       RTMP_APP_NAME=app
+         *       RTMP_STREAM_KEY=your-stream-key
+         *       RTMP_USE_NODE_MEDIA_SERVER=false
+         *
+         * Per-room custom destination (no env changes needed):
+         *   - Set RTMP_ALLOW_CUSTOM_URL=true in .env
+         *   - Presenters will see preset buttons (YouTube/Facebook/Twitch/Custom)
+         *     in the RTMP tab of the meeting room
+         *   - They select a platform, paste their stream key, and start streaming
+         *   - The custom URL overrides the server default for that specific stream only
+         *
+         * Requirements:
+         * -------------
+         * - RTMP server must be running (or streaming to external platform)
+         * - Port 1935 must be accessible (or 443 for rtmps)
+         * - FFmpeg must be installed
+         *
+         * Documentation:
+         * --------------
+         * - See rtmpServers/README.md
+         */
+        rtmp: {
+            enabled: process.env.RTMP_ENABLED === 'true',
+            fromFile: process.env.RTMP_FROM_FILE !== 'false',
+            fromUrl: process.env.RTMP_FROM_URL !== 'false',
+            fromStream: process.env.RTMP_FROM_STREAM !== 'false',
+            maxStreams: parseInt(process.env.RTMP_MAX_STREAMS) || 1,
+            allowCustomUrl: process.env.RTMP_ALLOW_CUSTOM_URL === 'true',
+            useNodeMediaServer: process.env.RTMP_USE_NODE_MEDIA_SERVER !== 'false',
+            server: process.env.RTMP_SERVER || 'rtmp://localhost:1935',
+            appName: process.env.RTMP_APP_NAME || 'live',
+            streamKey: process.env.RTMP_STREAM_KEY || '',
+            secret: process.env.RTMP_SECRET || 'sepehrRtmpSecret',
+            apiSecret: process.env.RTMP_API_SECRET || '',
+            expirationHours: parseInt(process.env.RTMP_EXPIRATION_HOURS) || 4,
+            dir: process.env.RTMP_DIR || '../rtmp',
+            ffmpegPath: RTMP_FFMPEG_PATH,
+            platform: PLATFORM,
+            videoQuality: process.env.RTMP_VIDEO_QUALITY || '720p',
+            maxVideoQuality: process.env.RTMP_MAX_VIDEO_QUALITY || '1080p',
+            allowQualitySelection: process.env.RTMP_ALLOW_QUALITY_SELECTION !== 'false',
+            videoBitrate: parseInt(process.env.RTMP_VIDEO_BITRATE) || 0,
+            videoFps: parseInt(process.env.RTMP_VIDEO_FPS) || 30,
+            videoPreset: process.env.RTMP_VIDEO_PRESET || 'veryfast',
+            audioBitrate: parseInt(process.env.RTMP_AUDIO_BITRATE) || 128,
+        },
+
+        /**
+         * WHIP Ingestion (RFC 9725)
+         * =========================
+         * WebRTC-HTTP Ingestion Protocol: lets external encoders publish audio/video into an
+         * active room with sub-second latency (no FFmpeg/transcoding, the SFU only forwards).
+         * Each WHIP session appears in the room as a participant that only sends media.
+         *
+         * Compatible clients: OBS Studio 30+ (Service: WHIP), FFmpeg (-f whip), GStreamer
+         * (whipclientsink), Larix Broadcaster, vMix, browser libraries (@eyevinn/whip-web-client)...
+         *
+         * Endpoint
+         * --------
+         * - POST   /whip/{roomId}[?name=DisplayName]  Body: SDP offer (application/sdp) -> 201 + SDP answer
+         * - DELETE /whip/{roomId}/{sessionId}          Ends the session (URL returned in the Location header; creator token or WHIP_API_SECRET only)
+         *
+         * Authorization (Bearer token, required)
+         * --------------------------------------
+         * - apiSecret : Server-wide token valid for every room (WHIP_API_SECRET, min 16 chars).
+         *               Leave empty to accept only per-room tokens.
+         * - Per-room token: POST /api/v1/whip { room, name?, expire? } (API_KEY_SECRET) returns
+         *               { whip, token }. The token is a JWT bound to that room (default expiry: tokenExpire).
+         *
+         * Core Settings
+         * -------------
+         * - enabled            : Enable WHIP ingestion (default: false)
+         * - tokenExpire        : Default lifetime of per-room tokens (default: '4h')
+         * - maxSessions        : Max simultaneous WHIP sessions on this server (default: 5)
+         * - maxSessionsPerRoom : Max simultaneous WHIP sessions per room (default: 1)
+         * - maxIncomingBitrate : Max bitrate accepted per WHIP session in bps (default: 6000000)
+         * - rateLimit          : Per-IP limit for WHIP HTTP requests (default: 30 / 60s)
+         *
+         * Behaviour
+         * ---------
+         * - The room must already be active (someone joined): WHIP never creates rooms.
+         * - Join-locked or full rooms reject new sessions; room password/lobby do not apply (token = authorization).
+         * - Supported codecs are the router ones (Opus, VP8, VP9, H264). One audio and/or one video track.
+         * - The session ends on DELETE, ICE/DTLS failure, presenter eject/ban, or when the room ends.
+         * - Presenter ban also blocks the token: a per-room token until it expires, the server-wide
+         *   secret only in that room until the room ends (in memory, cleared on restart).
+         * - /whip/* has its own CORS policy (CORS_ORIGIN + POST/DELETE/PATCH, exposes Location) for browser clients.
+         *
+         * OBS Studio: Settings -> Stream -> Service: WHIP
+         *   Server: https://your.domain/whip/{roomId}?name=OBS   Bearer Token: <token>
+         *
+         * In-room WHIP client (Settings -> WHIP publish, presenters only, SHOW_WHIP_TAB)
+         * -------------------------------------------------------------------------------
+         * - Publishes the presenter's camera/screen + microphone to any WHIP endpoint (another
+         *   a meeting room, a media server, a streaming platform), straight from the browser.
+         * - When WHIP is enabled here, presenters can also create a per-room token for this room
+         *   ("Receive in this room") or self-test with "Test with this room".
+         * - Remote endpoints must allow this origin via CORS (POST/DELETE, Authorization, expose Location).
+         * - Auth: Bearer token field, or https://user:pass@host/... sent as Basic auth (never persisted).
+         */
+        whip: {
+            enabled: process.env.WHIP_ENABLED === 'true',
+            apiSecret: process.env.WHIP_API_SECRET || '',
+            tokenExpire: process.env.WHIP_TOKEN_EXPIRE || '4h',
+            maxSessions: parseInt(process.env.WHIP_MAX_SESSIONS) || 5,
+            maxSessionsPerRoom: parseInt(process.env.WHIP_MAX_SESSIONS_PER_ROOM) || 1,
+            maxIncomingBitrate: parseInt(process.env.WHIP_MAX_INCOMING_BITRATE) || 6000000,
+            rateLimit: {
+                windowMs: 60 * 1000,
+                max: parseInt(process.env.WHIP_RATE_LIMIT_MAX) || 30,
+            },
+        },
+    },
+
+    // ==============================================
+    // 4. Security & Authentication
+    // ==============================================
+
+    security: {
+        /**
+         * IP Whitelisting
+         * ------------------------
+         * - enabled: Restrict access to specified IPs
+         * - allowedIPs: Array of permitted IP addresses
+         */
+        middleware: {
+            IpWhitelist: {
+                enabled: process.env.IP_WHITELIST_ENABLED === 'true',
+                allowedIPs: process.env.IP_WHITELIST_ALLOWED
+                    ? process.env.IP_WHITELIST_ALLOWED.split(splitChar)
+                          .map((ip) => ip.trim())
+                          .filter((ip) => ip !== '')
+                    : ['127.0.0.1', '::1'],
+            },
+        },
+
+        /**
+         * JWT Configuration
+         * ------------------------
+         * - key: Secret for JWT signing (required, min 32 chars, e.g. `openssl rand -hex 32`).
+         *        The server refuses to start if it is missing, weak or a published default.
+         * - exp: Token expiration time
+         */
+        jwt: {
+            key: process.env.JWT_SECRET,
+            exp: process.env.JWT_EXPIRATION || '1h',
+        },
+
+        /**
+         * OpenID Connect (OIDC) Authentication Configuration
+         * =================================================
+         * Configures authentication using OpenID Connect (OIDC), allowing integration with
+         * identity providers like Auth0, Okta, Keycloak, etc.
+         *
+         * Structure:
+         * - enabled                                : Master switch for OIDC authentication
+         * - baseURLDynamic                         : Whether to dynamically resolve base URL
+         *   allow_rooms_creation_for_auth_users    : Allow all authenticated users via OIDC to create their own rooms
+         * - peer_name                              : Controls which user attributes to enforce/request
+         * - config                                 : Core OIDC provider settings
+         *
+         * Core Settings:
+         * - issuerBaseURL      : Provider's discovery endpoint (e.g., https://your-tenant.auth0.com)
+         * - baseURL            : Your application's base URL
+         * - clientID           : Client identifier issued by provider
+         * - clientSecret       : Client secret issued by provider
+         * - secret             : Application session secret
+         * - authRequired       : Whether all routes require authentication
+         * - auth0Logout        : Whether to use provider's logout endpoint
+         * - authorizationParams: OAuth/OIDC flow parameters including:
+         *   - response_type    : OAuth response type ('code' for Authorization Code Flow)
+         *   - scope            : Requested claims (openid, profile, email)
+         * - routes             : Endpoint path configuration for:
+         *   - callback         : OAuth callback handler path
+         *   - login            : Custom login path (false to disable)
+         *   - logout           : Custom logout path
+         *
+         */
+        oidc: {
+            enabled: process.env.OIDC_ENABLED === 'true',
+            baseURLDynamic: process.env.OIDC_BASE_URL_DYNAMIC === 'true', // Set true if your app has dynamic base URLs
+
+            /*
+             * When `baseURLDynamic` is true, the OIDC baseURL (and therefore the redirect_uri
+             * sent to the IdP) is derived from the incoming `Host` header. To prevent
+             * Host-header injection from redirecting authorization codes to an attacker,
+             * list every origin the server is allowed to serve here (full origin, no path).
+             * The static `config.baseURL` is always trusted and does not need to be repeated.
+             * Example: ['https://meet.example.com', 'https://meet.eu.example.com']
+             */
+            allowedDynamicBaseURLs: process.env.OIDC_ALLOWED_DYNAMIC_BASE_URLS
+                ? process.env.OIDC_ALLOWED_DYNAMIC_BASE_URLS.split(splitChar)
+                      .map((u) => u.trim())
+                      .filter(Boolean)
+                : [],
+
+            // ==================================================================================================
+            allow_rooms_creation_for_auth_users: process.env.OIDC_ALLOW_ROOMS_CREATION_FOR_AUTH_USERS !== 'false',
+            // ==================================================================================================
+
+            // User identity requirements
+            peer_name: {
+                force: process.env.OIDC_USERNAME_FORCE !== 'false', // Forces the username to match the OIDC email or name. If true, the user won't be able to change their name when joining a room
+                email: process.env.OIDC_USERNAME_AS_EMAIL !== 'false', // Uses the OIDC email as the username.
+                name: process.env.OIDC_USERNAME_AS_NAME === 'true', // Uses the OIDC name as the username
+            },
+
+            // Provider configuration
+            config: {
+                // Required provider settings
+                issuerBaseURL: process.env.OIDC_ISSUER || 'https://server.example.com',
+                baseURL: process.env.OIDC_BASE_URL || `http://localhost:${process.env.PORT || 3010}`,
+                clientID: process.env.OIDC_CLIENT_ID || 'clientID',
+                clientSecret: process.env.OIDC_CLIENT_SECRET || 'clientSecret',
+
+                // Session configuration
+                secret: process.env.OIDC_SECRET || 'sepehrmeet-oidc-secret',
+                authRequired: process.env.OIDC_AUTH_REQUIRED === 'true', // Whether all routes require authentication
+                auth0Logout: process.env.OIDC_AUTH_LOGOUT !== 'false', // Use provider's logout endpoint
+
+                // OAuth/OIDC flow parameters
+                authorizationParams: {
+                    response_type: 'code', // Use authorization code flow
+                    scope: 'openid profile email', // Request standard claims
+                },
+
+                // Route customization
+                routes: {
+                    callback: '/auth/callback', // OAuth callback path
+                    login: false, // Disable default login route
+                    logout: '/logout', // Custom logout path
+                },
+            },
+        },
+
+        /**
+         * Host Protection Configuration
+         * ============================
+         * Controls access to host-level functionality and room management.
+         *
+         * Authentication Methods:
+         * ----------------------
+         * - Local users (defined in config or via HOST_USERS env variable)
+         * - API/database validation (users_from_db=true)
+         *
+         * Core Settings:
+         * --------------
+         * - protected      : Enable/disable host protection globally
+         * - user_auth      : Require user authentication for host access
+         * - users_from_db  : Fetch users from API/database instead of local config
+         * - maxAttempts    : Maximum login attempts before temporary block
+         * - minBlockTime   : Block duration in minutes after max attempts exceeded
+         *
+         * API Integration:
+         * ---------------
+         * - users_api_secret_key    : Secret key for API authentication
+         * - users_api_endpoint      : Endpoint to validate user credentials
+         * - users_api_room_allowed  : Endpoint to check if user can access a room
+         * - users_api_rooms_allowed : Endpoint to get allowed rooms for a user
+         * - api_room_exists         : Endpoint to verify if a room exists
+         *
+         * Local User Configuration:
+         * ------------------------
+         * - users: Array of authorized users (used if users_from_db=false)
+         *   - Define via HOST_USERS env variable (password 1-36 chars per user):
+         *     HOST_USERS=username:password:displayname:room1,room2|username2:password2:displayname2:*
+         *     (Each user separated by '|', fields by ':', allowed_rooms comma-separated or '*' for all)
+         *     JSON is also accepted (use it when a value contains ':', '|' or ','):
+         *     HOST_USERS='[{"username":"alice","password":"pw","displayname":"Alice","allowed_rooms":["*"]}]'
+         *   - Empty by default. Required when protected or user_auth is enabled (unless OIDC or users_from_db is used).
+         *   - The server refuses to start with publicly known credentials (admin/admin, guest/guest, username/password...).
+         *   - Fields:
+         *     - username      : Login username
+         *     - password      : Login password (1-36 characters)
+         *     - displayname   : Optional, enforced as the user's name in the room (not editable)
+         *     - allowed_rooms : Optional, rooms the user can open/join with this login ('*' for all, default)
+         *
+         * Presenter Management:
+         * --------------------
+         * - list        : Array of authenticated identities who are always presenters:
+         *                 - LOGIN usernames (the `username` field of HOST_USERS, not the display name)
+         *                   for host login (protected / user_auth) or a valid JWT token
+         *                 - verified email or `sub` of the OIDC user when OIDC is enabled
+         *                 - '*' : any authenticated OIDC user (OIDC only); combine with
+         *                   join_first=false so guests never become presenter
+         *                 The join-form display name is never matched, so with no auth enabled this
+         *                 list has no effect: use join_first or a token with presenter=true instead.
+         *                 Empty by default.
+         * - join_first  : First joiner becomes presenter; when the last presenter leaves,
+         *                 promote the first admitted participant (default: true)
+         *
+         * Documentation:
+         * -------------
+         * See app/src/HostUsers.js
+         */
+        host: {
+            protected: process.env.HOST_PROTECTED === 'true',
+            user_auth: process.env.HOST_USER_AUTH === 'true',
+
+            maxAttempts: process.env.HOST_MAX_LOGIN_ATTEMPTS || 5,
+            minBlockTime: process.env.HOST_MIN_LOGIN_BLOCK_TIME || 15, // in minutes
+
+            users_from_db: process.env.HOST_USERS_FROM_DB === 'true',
+            users_api_secret_key: process.env.USERS_API_SECRET || 'sepehrweb_default_secret',
+            users_api_endpoint: process.env.USERS_API_ENDPOINT || 'http://localhost:9000/api/v1/user/isAuth', // external users API
+            users_api_room_allowed:
+                process.env.USERS_ROOM_ALLOWED_ENDPOINT || 'http://localhost:9000/api/v1/user/isRoomAllowed', // external users API
+            users_api_rooms_allowed:
+                process.env.USERS_ROOMS_ALLOWED_ENDPOINT || 'http://localhost:9000/api/v1/user/roomsAllowed', // external users API
+            api_room_exists: process.env.ROOM_EXISTS_ENDPOINT || 'http://localhost:9000/api/v1/room/exists', // external users API
+
+            users: parseHostUsers(process.env.HOST_USERS), // Empty by default: a shipped username/password is a public credential, set your own.
+
+            presenters: {
+                list: process.env.PRESENTERS
+                    ? process.env.PRESENTERS.split(splitChar)
+                          .map((presenter) => presenter.trim())
+                          .filter((presenter) => presenter !== '')
+                    : [], // Empty by default: a shipped name is a public credential. Set PRESENTERS to unique, non-guessable values.
+                join_first: process.env.PRESENTER_JOIN_FIRST !== 'false',
+            },
+        },
+    },
+
+    // ==============================================
+    // 5. API Configuration
+    // ==============================================
+
+    /**
+     * API Security & Endpoint Configuration
+     * ====================================
+     * Controls access to the SFU's API endpoints and integration settings.
+     *
+     * Security Settings:
+     * -----------------
+     * - keySecret : Authentication secret for API requests
+     *               (Always override default in production)
+     *
+     * Endpoint Control:
+     * -----------------
+     * - stats      : Enable/disable system statistics endpoint [true/false] (default: true)
+     * - meetings   : Enable/disable meetings list endpoint [true/false] (default: true)
+     * - meeting    : Enable/disable single meeting operations [true/false] (default: true)
+     * - join       : Enable/disable meeting join endpoint [true/false] (default: true)
+     * - token      : Enable/disable token generation endpoint [true/false] (default: false)
+     * - whip       : Enable/disable WHIP ingest token endpoint (POST /api/v1/whip) [true/false] (default: true)
+     * - slack      : Enable/disable Slack webhook integration [true/false] (default: true)
+     * - mattermost : Enable/disable Mattermost webhook integration [true/false] (default: true)
+     *
+     * API Documentation:
+     * ------------------
+     * - Complete API reference: app/api/README.md
+     * - Webhook setup: See integration guides for Slack/Mattermost
+     */
+    api: {
+        keySecret: process.env.API_KEY_SECRET,
+        allowed: {
+            stats: process.env.API_ALLOW_STATS !== 'false',
+            meetings: process.env.API_ALLOW_MEETINGS === 'true',
+            meeting: process.env.API_ALLOW_MEETING !== 'false',
+            meetingEnd: process.env.API_ALLOW_MEETING_END === 'true',
+            join: process.env.API_ALLOW_JOIN !== 'false',
+            token: process.env.API_ALLOW_TOKEN === 'true',
+            whip: process.env.API_ALLOW_WHIP !== 'false',
+            slack: process.env.API_ALLOW_SLACK !== 'false',
+            mattermost: process.env.API_ALLOW_MATTERMOST !== 'false',
+        },
+    },
+
+    // ==============================================
+    // 6. Third-Party Integrations
+    // ==============================================
+
+    integrations: {
+        /**
+         * ChatGPT Integration Configuration
+         * ================================
+         * OpenAI API integration for AI-powered chat functionality
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Go to https://platform.openai.com/
+         * 2. Create your OpenAI account
+         * 3. Generate your API key at https://platform.openai.com/account/api-keys
+         *
+         * Core Settings:
+         * -------------
+         * - enabled    : Enable/disable ChatGPT integration [true/false] (default: false)
+         * - basePath   : OpenAI API endpoint (default: 'https://api.openai.com/v1/')
+         * - apiKey     : OpenAI ProjectAPI secret key (ALWAYS store in .env)
+         * - model      : GPT model version (default: 'gpt-6-luna')
+         *
+         * Advanced Settings:
+         * -----------------
+         * - max_tokens: Maximum response length (default: 1024 tokens)
+         * - temperature: Creativity control (0=strict, 1=creative) (default: 0.7)
+         * - reasoning_effort: Reasoning models only (none|low|medium|high|xhigh|max) (default: 'none')
+         *     temperature is only sent when reasoning_effort is 'none' or empty.
+         *     Set it to empty for non-reasoning models (e.g. gpt-4o) or other OpenAI-compatible APIs.
+         *
+         * Usage Example:
+         * -------------
+         * 1. Supported Models:
+         *    - gpt-6-luna (recommended, fast & cheap)
+         *    - gpt-6-sol
+         *    - gpt-6.1-sol
+         *    - ...
+         *    See https://platform.openai.com/docs/models
+         *
+         * 2. Temperature Guide:
+         *    - 0.0: Factual responses
+         *    - 0.7: Balanced
+         *    - 1.0: Maximum creativity
+         */
+        chatGPT: {
+            enabled: process.env.CHATGPT_ENABLED === 'true',
+            basePath: process.env.CHATGPT_BASE_PATH || 'https://api.openai.com/v1/',
+            apiKey: process.env.CHATGPT_API_KEY || '',
+            model: process.env.CHATGPT_MODEL || 'gpt-6-luna',
+            max_tokens: parseInt(process.env.CHATGPT_MAX_TOKENS) || 1024,
+            temperature: parseInt(process.env.CHATGPT_TEMPERATURE) || 0.7,
+            reasoning_effort: process.env.CHATGPT_REASONING_EFFORT ?? 'none',
+        },
+
+        /**
+         * DeepSeek Integration Configuration
+         * ================================
+         * DeepSeek API integration for AI-powered chat functionality
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Go to https://deepseek.com/
+         * 2. Create your DeepSeek account
+         * 3. Generate your API key at https://deepseek.com/account/api-keys
+         *
+         * Core Settings:
+         * -------------
+         * - enabled    : Enable/disable DeepSeek integration [true/false] (default: false)
+         * - basePath   : DeepSeek API endpoint (default: 'https://api.deepseek.com/v1/')
+         * - apiKey     : DeepSeek API secret key (ALWAYS store in .env)
+         * - model      : DeepSeek model version (default: 'deepseek-v4-flash')
+         *
+         * Advanced Settings:
+         * -----------------
+         * - max_tokens: Maximum response length (default: 1024 tokens)
+         * - temperature: Creativity control (0=strict, 1=creative) (default: 0)
+         *
+         * Usage Example:
+         * -------------
+         * 1. Supported Models:
+         *  - deepseek-v4-flash (recommended)
+         *  - deepseek-v4-pro
+         *  - ...
+         *
+         * 2. Temperature Guide:
+         *  - 0.0: Factual responses
+         *  - 0.7: Balanced
+         *  - 1.0: Maximum creativity
+         *
+         */
+        deepSeek: {
+            enabled: process.env.DEEP_SEEK_ENABLED === 'true',
+            basePath: process.env.DEEP_SEEK_BASE_PATH || 'https://api.deepseek.com/v1/',
+            apiKey: process.env.DEEP_SEEK_API_KEY || '',
+            model: process.env.DEEP_SEEK_MODEL || 'deepseek-v4-flash',
+            max_tokens: parseInt(process.env.DEEP_SEEK_MAX_TOKENS) || 1024,
+            temperature: parseInt(process.env.DEEP_SEEK_TEMPERATURE) || 0.7,
+        },
+
+        /**
+         * GIF Search Configuration (KLIPY)
+         * ================================
+         * Optional GIF picker in the chat, powered by KLIPY
+         * (a free, drop-in replacement for the discontinued Tenor API).
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Create a free API key at https://partner.klipy.com/ (API Keys)
+         * 2. Set KLIPY_API_KEY in your .env file
+         * 3. Restart the server
+         *
+         * Core Settings:
+         * -------------
+         * - enabled       : Enabled automatically when an API key is set (default: false)
+         * - apiKey        : KLIPY app key. Per KLIPY's integration requirements, searches are
+         *                   sent directly from the browser, so this key is shared with joined peers.
+         * - contentFilter : Content safety level [off/low/medium/high] (default: 'high')
+         *
+         * Notes:
+         * -----
+         * - Testing-mode keys are limited to 100 requests/hour; request Production access
+         *   in the KLIPY Partner Panel to remove the limit.
+         * - Attribution: the picker uses the required "Search KLIPY" placeholder and shows "Powered by KLIPY".
+         *   See https://docs.klipy.com/attribution and https://docs.klipy.com/integration-requirements
+         */
+        gifSearch: {
+            enabled: process.env.KLIPY_API_ENABLED === 'true',
+            apiKey: process.env.KLIPY_API_KEY || '',
+            contentFilter: process.env.KLIPY_CONTENT_FILTER || 'high',
+        },
+
+        /**
+         * Chat Translation Configuration
+         * ==============================
+         * Optional: each participant can pick a language in the chat and their outgoing
+         * messages are translated before being sent, so others read them in that language.
+         * Uses any OpenAI-compatible chat completions endpoint (OpenAI, self-hosted, etc.).
+         * The message text is sent to that endpoint; the API key stays on the server
+         * and is NEVER exposed to the browser.
+         *
+         * Core Settings:
+         * -------------
+         * - enabled         : Enable/disable chat translation [true/false] (default: false)
+         * - basePath/apiKey/model/reasoningEffort : default to the CHATGPT_* values when not set
+         * - maxChars        : Max characters per message to translate (default: 1000)
+         * - maxTokens       : Max tokens of the translated answer (default: 1000)
+         * - rateLimit       : Max translations per peer per minute (default: 20)
+         */
+        chatTranslation: {
+            enabled: process.env.CHAT_TRANSLATION_ENABLED === 'true',
+            basePath:
+                process.env.CHAT_TRANSLATION_BASE_PATH || process.env.CHATGPT_BASE_PATH || 'https://api.openai.com/v1/',
+            apiKey: process.env.CHAT_TRANSLATION_API_KEY || process.env.CHATGPT_API_KEY || '',
+            model: process.env.CHAT_TRANSLATION_MODEL || process.env.CHATGPT_MODEL || 'gpt-6-luna',
+            reasoningEffort:
+                process.env.CHAT_TRANSLATION_REASONING_EFFORT ?? process.env.CHATGPT_REASONING_EFFORT ?? 'none',
+            maxChars: parseInt(process.env.CHAT_TRANSLATION_MAX_CHARS) || 1000,
+            maxTokens: parseInt(process.env.CHAT_TRANSLATION_MAX_TOKENS) || 1000,
+            rateLimit: parseInt(process.env.CHAT_TRANSLATION_RATE_LIMIT) || 20,
+        },
+
+        /**
+         * Whisper Speech-to-Text Configuration
+         * ====================================
+         * Server-side audio transcription using an OpenAI-compatible
+         * Whisper endpoint. Works with the official OpenAI API or any
+         * self-hosted, OpenAI-compatible server (whisper.cpp server,
+         * faster-whisper / whisper-asr-webservice, etc.).
+         *
+         * When enabled, the room Transcription panel shows a "Whisper mode"
+         * switch. In that mode the browser records short audio segments and
+         * sends them here for transcription instead of using the browser's
+         * built-in Web Speech API.
+         *
+         * Core Settings:
+         * -------------
+         * - enabled    : Enable/disable Whisper transcription [true/false] (default: false)
+         * - basePath   : OpenAI-compatible API endpoint (default: 'https://api.openai.com/v1/')
+         *                For a self-hosted server use e.g. 'http://localhost:8000/v1/'
+         * - apiKey     : API secret key (ALWAYS store in .env). May be empty for
+         *                self-hosted servers that don't require authentication.
+         * - model      : Whisper model name (default: 'whisper-1')
+         * - language   : Optional ISO-639-1 language hint (e.g. 'en'). Empty = auto-detect.
+         *
+         * Advanced Settings:
+         * -----------------
+         * - segmentSeconds : Length of each recorded audio segment sent for
+         *                    transcription (default: 5 seconds)
+         * - maxAudioBytes  : Reject audio segments larger than this (default: 25MB)
+         */
+        whisper: {
+            enabled: process.env.WHISPER_ENABLED === 'true',
+            basePath: process.env.WHISPER_BASE_PATH || 'https://api.openai.com/v1/',
+            apiKey: process.env.WHISPER_API_KEY || '',
+            model: process.env.WHISPER_MODEL || 'whisper-1',
+            language: process.env.WHISPER_LANGUAGE || '',
+            segmentSeconds: parseInt(process.env.WHISPER_SEGMENT_SECONDS) || 5,
+            maxAudioBytes: parseInt(process.env.WHISPER_MAX_AUDIO_BYTES) || 25 * 1024 * 1024,
+        },
+
+        /**
+         * LiveAvatar Video AI Configuration
+         * =================================
+         * AI-powered avatar streaming integrations.
+         * Supported providers: liveavatar, anam
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Go to https://app.liveavatar.com
+         * 2. Create your LiveAvatar account
+         * 3. Generate your API key from settings
+         * 4. (Optional) Configure Anam provider:
+         *    - https://lab.anam.ai
+         *    - create API key and copy LLM id
+         *
+         * Core Settings:
+         * -------------
+         * - enabled    : Enable/disable Video AI [true/false] (default: false)
+         * - defaultProvider: Default provider shown in UI (liveavatar|anam)
+         * - liveavatar     : LiveAvatar provider config
+         * - anam           : Anam provider config
+         *
+         * AI Behavior:
+         * -----------
+         * - systemLimit: Personality/behavior instructions for the AI avatar
+         *                (default: Streaming avatar instructions for Sepehr Meeting)
+         */
+        videoAI: {
+            enabled: process.env.VIDEOAI_ENABLED === 'true',
+            defaultProvider: process.env.VIDEOAI_DEFAULT_PROVIDER || process.env.VIDEOAI_PROVIDER || 'liveavatar',
+            systemLimit: process.env.VIDEOAI_SYSTEM_LIMIT || 'You are a streaming avatar from Sepehr Meeting...',
+            sessionTimeLimit: process.env.VIDEOAI_SESSION_TIME_LIMIT
+                ? parseInt(process.env.VIDEOAI_SESSION_TIME_LIMIT, 10)
+                : 0, // Session time limit in seconds (0 = unlimited)
+            liveavatar: {
+                enabled: process.env.VIDEOAI_LIVEAVATAR_ENABLED
+                    ? process.env.VIDEOAI_LIVEAVATAR_ENABLED === 'true'
+                    : true,
+                basePath:
+                    process.env.VIDEOAI_LIVEAVATAR_BASE_PATH ||
+                    process.env.VIDEOAI_BASE_PATH ||
+                    'https://api.liveavatar.com',
+                apiKey: process.env.VIDEOAI_LIVEAVATAR_API_KEY || process.env.VIDEOAI_API_KEY || '',
+                mode: process.env.VIDEOAI_LIVEAVATAR_MODE || process.env.VIDEOAI_MODE || 'FULL',
+                contextId: process.env.VIDEOAI_LIVEAVATAR_CONTEXT_ID || process.env.VIDEOAI_CONTEXT_ID || '',
+            },
+            anam: {
+                enabled: process.env.VIDEOAI_ANAM_ENABLED
+                    ? process.env.VIDEOAI_ANAM_ENABLED === 'true'
+                    : !!(process.env.VIDEOAI_ANAM_API_KEY || ''),
+                basePath: process.env.VIDEOAI_ANAM_BASE_PATH || 'https://api.anam.ai',
+                apiKey: process.env.VIDEOAI_ANAM_API_KEY || '',
+                llmId: process.env.VIDEOAI_ANAM_LLM_ID || '',
+                avatarModel: process.env.VIDEOAI_ANAM_AVATAR_MODEL || 'cara-4',
+                systemLimit: process.env.VIDEOAI_ANAM_SYSTEM_LIMIT || '',
+            },
+        },
+
+        /**
+         * Email Notification Configuration
+         * ===============================
+         * SMTP settings for system alerts and notifications
+         *
+         * Core Settings:
+         * -------------
+         * - alert      : Enable/disable email alerts [true/false] (default: false)
+         * - notify     : Enable/disable room email notifications [true/false] (default: false)
+         * - host       : SMTP server address (default: 'localhost')
+         * - port       : SMTP port (default: 1025 for Mailpit, 587 for most providers)
+         * - username   : SMTP auth username
+         * - password   : SMTP auth password (store ONLY in .env)
+         * - from       : Sender email address (default: same as username)
+         * - sendTo     : Recipient email for alerts and notifications
+         *
+         * Common Providers:
+         * ----------------
+         * Gmail:
+         * - host: smtp.gmail.com
+         * - port: 587
+         *
+         * Office365:
+         * - host: smtp.office365.com
+         * - port: 587
+         *
+         * SendGrid:
+         * - host: smtp.sendgrid.net
+         * - port: 587
+         *
+         * Mailpit (local testing):
+         * - host: localhost
+         * - port: 1025
+         * - docker-compose-mailpit.yml
+         */
+        email: {
+            alert: process.env.EMAIL_ALERTS_ENABLED === 'true',
+            notify: process.env.EMAIL_NOTIFICATIONS === 'true',
+            host: process.env.EMAIL_HOST || 'localhost',
+            port: parseInt(process.env.EMAIL_PORT) || 1025,
+            username: process.env.EMAIL_USERNAME || 'test',
+            password: process.env.EMAIL_PASSWORD || 'test',
+            from: process.env.EMAIL_FROM || process.env.EMAIL_USERNAME,
+            sendTo: process.env.EMAIL_SEND_TO || 'test@example.com',
+        },
+
+        /**
+         * Slack Integration Configuration
+         * ==============================
+         * Settings for Slack slash commands and interactivity
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Create a Slack app at https://api.slack.com/apps
+         * 2. Under "Basic Information" → "App Credentials":
+         *    - Copy the Signing Secret
+         * 3. Enable "Interactivity & Shortcuts" and "Slash Commands"
+         * 4. Set Request URL to: https://your-domain.com/slack/commands
+         *
+         * Core Settings:
+         * -------------
+         * - enabled         : Enable/disable Slack integration [true/false] (default: false)
+         * - signingSecret   : From Slack app credentials (store ONLY in .env)
+         *
+         */
+        slack: {
+            enabled: process.env.SLACK_ENABLED === 'true',
+            signingSecret: process.env.SLACK_SIGNING_SECRET || '',
+        },
+
+        /**
+         * Mattermost Integration Configuration
+         * ===================================
+         * Settings for Mattermost slash commands and bot integration
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Go to Mattermost System Console → Integrations → Bot Accounts
+         * 2. Create a new bot account and copy:
+         *    - Server URL (e.g., 'https://chat.yourdomain.com')
+         *    - Access Token
+         * 3. For slash commands:
+         *    - Navigate to Integrations → Slash Commands
+         *    - Set Command: '/sfu'
+         *    - Set Request URL: 'https://your-sfu-server.com/mattermost/commands'
+         *
+         * Core Settings:
+         * -------------
+         * - enabled      : Enable/disable integration [true/false] (default: false)
+         * - serverUrl    : Mattermost server URL (include protocol)
+         * - token        : Bot account access token (most secure option)
+         * - OR
+         * - username     : Legacy auth username (less secure)
+         * - password     : Legacy auth password (deprecated)
+         *
+         * Command Configuration:
+         * ---------------------
+         * - commands     : Slash command definitions:
+         *   - name       : Command trigger (e.g., '/sfu')
+         *   - message    : Default response template
+         *
+         */
+        mattermost: {
+            enabled: process.env.MATTERMOST_ENABLED === 'true',
+            serverUrl: process.env.MATTERMOST_SERVER_URL || '',
+            username: process.env.MATTERMOST_USERNAME || '',
+            password: process.env.MATTERMOST_PASSWORD || '',
+            token: process.env.MATTERMOST_TOKEN || '',
+            commands: [
+                {
+                    name: process.env.MATTERMOST_COMMAND_NAME || '/sfu',
+                    message: process.env.MATTERMOST_DEFAULT_MESSAGE || 'Here is your meeting room:',
+                },
+            ],
+            texts: [
+                {
+                    name: process.env.MATTERMOST_COMMAND_NAME || '/sfu',
+                    message: process.env.MATTERMOST_DEFAULT_MESSAGE || 'Here is your meeting room:',
+                },
+            ],
+        },
+
+        /**
+         * Discord Integration Configuration
+         * ================================
+         * Settings for Discord bot and slash commands integration
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Create a Discord application at https://discord.com/developers/applications
+         * 2. Navigate to "Bot" section and:
+         *    - Click "Add Bot"
+         *    - Copy the bot token (DISCORD_TOKEN)
+         * 3. Under "OAuth2 → URL Generator":
+         *    - Select "bot" and "applications.commands" scopes
+         *    - Select required permissions (see below)
+         * 4. Invite bot to your server using generated URL
+         *
+         * Core Settings:
+         * -------------
+         * - enabled        : Enable/disable Discord bot [true/false] (default: false)
+         * - token          : Bot token from Discord Developer Portal (store in .env)
+         *
+         * Command Configuration:
+         * ---------------------
+         * - commands       : Slash command definitions:
+         *   - name         : Command trigger (e.g., '/sfu')
+         *   - message      : Response template
+         *   - baseUrl      : Meeting room base URL
+         *
+         */
+        discord: {
+            enabled: process.env.DISCORD_ENABLED === 'true',
+            token: process.env.DISCORD_TOKEN || '',
+            commands: [
+                {
+                    name: process.env.DISCORD_COMMAND_NAME || '/sfu',
+                    message: process.env.DISCORD_DEFAULT_MESSAGE || 'Here is your SFU meeting room:',
+                    baseUrl: process.env.DISCORD_BASE_URL || '/',
+                },
+            ],
+        },
+
+        /**
+         * Ngrok Tunnel Configuration
+         * =========================
+         * Secure tunneling for local development and testing
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Sign up at https://dashboard.ngrok.com/signup
+         * 2. Get your auth token from:
+         *    https://dashboard.ngrok.com/get-started/your-authtoken
+         * 3. For reserved domains/subdomains:
+         *    - Upgrade to paid plan if needed
+         *    - Reserve at https://dashboard.ngrok.com/cloud-edge/domains
+         *
+         * Core Settings:
+         * -------------
+         * - enabled      : Enable/disable Ngrok tunneling [true/false] (default: false)
+         * - authToken    : Your Ngrok authentication token (from dashboard)
+         */
+        ngrok: {
+            enabled: process.env.NGROK_ENABLED === 'true',
+            authToken: process.env.NGROK_AUTH_TOKEN || '',
+        },
+
+        /**
+         * Sentry Error Tracking Configuration
+         * ==================================
+         * Real-time error monitoring and performance tracking
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Create a project at https://sentry.io/signup/
+         * 2. Get your DSN from:
+         *    Project Settings → Client Keys (DSN)
+         * 3. Configure alert rules and integrations as needed
+         *
+         * Core Settings:
+         * -------------
+         * enabled              : Enable/disable Sentry [true/false] (default: false)
+         * logLevels            : Array of log levels to capture (default: ['error'])
+         * DSN                  : Data Source Name (from Sentry dashboard)
+         * tracesSampleRate     : Percentage of transactions to capture (0.0-1.0)
+         *
+         * Performance Tuning:
+         * ------------------
+         * - Production         : 0.1-0.2 (10-20% of transactions)
+         * - Staging            : 0.5-1.0
+         * - Development        : 0.0 (disable performance tracking)
+         *
+         */
+        sentry: {
+            enabled: process.env.SENTRY_ENABLED === 'true',
+            logLevels: process.env.SENTRY_LOG_LEVELS
+                ? process.env.SENTRY_LOG_LEVELS.split(splitChar).map((level) => level.trim())
+                : ['error'],
+            DSN: process.env.SENTRY_DSN || '',
+            tracesSampleRate: Math.min(Math.max(parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE) || 0.5, 0), 1),
+        },
+
+        /**
+         * Webhook Configuration Settings
+         * =============================
+         * Controls the webhook notification system for sending event data to external services.
+         *
+         * Core Settings:
+         * ---------------------
+         * - enabled: Turns webhook notifications on/off
+         * - url: The endpoint URL where webhook payloads will be sent in JSON format
+         *
+         * Implementation Guide:
+         * --------------------
+         * - For complete implementation examples, refer to:
+         *      - Project demo: webhook/ folder
+         */
+        webhook: {
+            enabled: process.env.WEBHOOK_ENABLED === 'true',
+            url: process.env.WEBHOOK_URL || 'https://your-site.com/webhook-endpoint',
+        },
+
+        /**
+         * IP Geolocation Service Configuration
+         * ===================================
+         * Enables lookup of geographical information based on IP addresses using the GeoJS.io API.
+         *
+         * Core Settings:
+         * ---------------------
+         * - enabled: Enable/disable the IP lookup functionality [true/false] default false
+         *
+         * Service Details:
+         * --------------
+         * - Uses GeoJS.io free API service (https://www.geojs.io/)
+         * - Returns JSON data containing:
+         *   - Country, region, city
+         *   - Latitude/longitude
+         *   - Timezone and organization
+         * - Rate limits: 60 requests/minute (free tier)
+         */
+        IPLookup: {
+            enabled: process.env.IP_LOOKUP_ENABLED === 'true',
+            getEndpoint(ip) {
+                return `https://get.geojs.io/v1/ip/geo/${ip}.json`;
+            },
+        },
+
+        /**
+         * Example for AWS S3 Storage Configuration
+         * ===========================
+         * Enables cloud file storage using Amazon Simple Storage Service (S3).
+         *
+         * Core Settings:
+         * --------------
+         * - enabled: Enable/disable AWS S3 integration [true/false]
+         * - accessKeyId: AWS access key ID (store in .env)
+         * - secretAccessKey: AWS secret access key (store in .env)
+         * - region: AWS region where the S3 bucket is located
+         * - bucket: Name of the S3 bucket to use for storage
+         *
+         * Advanced Settings:
+         * --------------
+         * - endpoint: Custom S3 endpoint URL (if empty to auto-resolve from region). Useful for S3-compatible services like MinIO, Wasabi, DigitalOcean Spaces, etc.
+         * - forcePathStyle: Set to true for S3-compatible services like MinIO, Wasabi, etc.
+         *
+         * Service Setup:
+         * -------------
+         * 1. Create an S3 Bucket:
+         *    - Sign in to AWS Management Console
+         *    - Navigate to S3 service
+         *    - Click "Create bucket"
+         *    - Choose unique name (e.g., 'sepehr')
+         *    - Select region (must match AWS_REGION in config)
+         *    - Enable desired settings (versioning, logging, etc.)
+         *
+         * 2. Get Security Credentials:
+         *    - Create IAM user with programmatic access
+         *    - Attach 'AmazonS3FullAccess' policy (or custom minimal policy)
+         *    - Save Access Key ID and Secret Access Key
+         *
+         * 3. Configure CORS (for direct uploads):
+         *    [
+         *      {
+         *        "AllowedHeaders": ["*"],
+         *        "AllowedMethods": ["PUT", "POST"],
+         *        "AllowedOrigins": ["*"],
+         *        "ExposeHeaders": []
+         *      }
+         *    ]
+         *
+         * Technical Details:
+         * -----------------
+         * - Default region: us-east-2 (Ohio)
+         * - Direct upload uses presigned URLs (expire after 1 hour by default)
+         * - Recommended permissions for direct upload:
+         *   - s3:PutObject
+         *   - s3:GetObject
+         *   - s3:DeleteObject
+         */
+        s3: {
+            enabled: process.env.S3_ENABLED === 'true',
+            accessKeyId: process.env.S3_ACCESS_KEY_ID || 'your-access-key-id',
+            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'your-secret-access-key',
+            bucket: process.env.S3_BUCKET || 'sepehr-meeting',
+            region: process.env.S3_REGION || 'us-east-2',
+            endpoint: process.env.S3_ENDPOINT || '',
+            forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+        },
+    },
+
+    // ==============================================
+    // 7. UI/UX Customization
+    // ==============================================
+
+    ui: {
+        /**
+         * Branding & Appearance Configuration
+         * -----------------------------------
+         * Controls all aspects of the application's visual identity, content, and metadata.
+         * Supports environment variable overrides for deployment-specific customization.
+         *
+         * ==============================================
+         * LICENSE REQUIRED:
+         * ==============================================
+         * - codecanyon.net marketplace listing
+         */
+        rooms: {
+            /**
+             * Room Display Settings
+             * ---------------------
+             * - showActive: Show active rooms in the UI (default: false)
+             *   /activeRooms
+             * - activeRoomsRateLimit: Throttle the public /api/v1/activeRooms
+             *   endpoint per IP to prevent enumeration/scraping abuse without
+             *   breaking the public "event zone" UX.
+             */
+            showActive: process.env.SHOW_ACTIVE_ROOMS === 'true',
+            activeRoomsRateLimit: {
+                windowMs:
+                    Math.max(parseInt(process.env.ACTIVE_ROOMS_RATE_LIMIT_WINDOW_MINUTES, 10) || 1, 1) * 60 * 1000,
+                max: Math.max(parseInt(process.env.ACTIVE_ROOMS_RATE_LIMIT_MAX, 10) || 60, 1),
+            },
+        },
+        brand: {
+            /**
+             * Application Branding
+             * --------------------
+             * Core application identity and user interface text elements.
+             *
+             * Note:
+             * Set BRAND_HTML_INJECTION to 'false' to disable HTML injection.
+             * This allows for static branding in the public/views folder, without dynamic content injection.
+             */
+            htmlInjection: process.env.BRAND_HTML_INJECTION !== 'false',
+
+            app: {
+                language: process.env.UI_LANGUAGE || 'en',
+                translationMode: process.env.UI_TRANSLATION_MODE || 'google', // auto (native else Google) | native (no Google) | google (default, always Google)
+                name: process.env.APP_NAME || 'Sepehr Meeting',
+                title:
+                    process.env.APP_TITLE ||
+                    '<h1>Sepehr Meeting</h1> Browser based real-time video calls.<br />Simple, Secure, Fast.',
+                description:
+                    process.env.APP_DESCRIPTION ||
+                    'Start your next video call with a single click. No download, plug-in, or login is required.',
+                joinDescription: process.env.JOIN_DESCRIPTION || 'Pick a room name.<br />How about this one?',
+                joinButtonLabel: process.env.JOIN_BUTTON_LABEL || 'JOIN ROOM',
+                customizeButtonLabel: process.env.CUSTOMIZE_BUTTON_LABEL || 'CUSTOMIZE ROOM',
+                joinLastLabel: process.env.JOIN_LAST_LABEL || 'Your recent room:',
+            },
+
+            /**
+             * Website Configuration
+             * --------------------
+             * Site-wide settings including icons and page-specific content.
+             */
+            site: {
+                title: process.env.SITE_TITLE || 'Sepehr Meeting - Self-Hosted WebRTC Video Conferencing',
+                icon: process.env.SITE_ICON_PATH || '../images/logo.svg',
+                appleTouchIcon: process.env.APPLE_TOUCH_ICON_PATH || '../images/logo.svg',
+                newRoomTitle: process.env.NEW_ROOM_TITLE || 'Pick name. <br />Share URL. <br />Start conference.',
+                newRoomDescription:
+                    process.env.NEW_ROOM_DESC || 'Each room has its disposable URL. Just pick a name and share.',
+            },
+
+            /**
+             * SEO Metadata
+             * ------------
+             * Search engine optimization elements.
+             */
+            meta: {
+                description:
+                    process.env.META_DESCRIPTION ||
+                    'Sepehr Meeting, a self-hosted WebRTC platform powered by Mediasoup for scalable video meetings.',
+                keywords: process.env.META_KEYWORDS || 'webrtc, video calls, conference, screen sharing, sepehr, sfu',
+            },
+
+            /**
+             * OpenGraph/Social Media
+             * ---------------------
+             * Metadata for rich social media sharing.
+             */
+            og: {
+                type: process.env.OG_TYPE || 'website',
+                siteName: process.env.OG_SITE_NAME || 'Sepehr Meeting',
+                title: process.env.OG_TITLE || 'Sepehr Meeting - Self-Hosted WebRTC Video Conferencing',
+                description:
+                    process.env.OG_DESCRIPTION ||
+                    'Sepehr Meeting, a self-hosted WebRTC video conferencing platform powered by Mediasoup. Host scalable meetings, webinars, classrooms, screen sharing and real-time collaboration.',
+                image: process.env.OG_IMAGE_URL || '/images/logo.svg',
+                url: process.env.OG_URL || '/',
+            },
+
+            /**
+             * UI Section Visibility
+             * ---------------------
+             * Toggle display of various page sections.
+             * Set to 'false' via environment variables to hide.
+             */
+            html: {
+                topSponsors: false,
+                landingAbout: process.env.SHOW_LANDING_ABOUT !== 'false',
+                faq: process.env.SHOW_FAQ !== 'false',
+                features: process.env.SHOW_FEATURES !== 'false',
+                teams: process.env.SHOW_TEAMS !== 'false',
+                tryEasier: process.env.SHOW_TRY_EASIER !== 'false',
+                poweredBy: false,
+                sponsors: false,
+                pastSponsors: false,
+                advertisers: false,
+                supportUs: false,
+                footer: process.env.SHOW_FOOTER !== 'false',
+                version: process.env.SHOW_VERSION !== 'false', // show app version in landing footer
+                appSwitcher: process.env.SHOW_APP_SWITCHER === 'true', // Apps switcher in landing nav (default hidden)
+            },
+
+            /**
+             * Apps Switcher
+             * ----------------------
+             * Links shown in the landing nav when SHOW_APP_SWITCHER=true.
+             * Links default to https://{app}.{domain}/, optionally overridden per app.
+             */
+            appSwitcher: {
+                domain: process.env.APP_SWITCHER_DOMAIN || 'sepehr.com',
+                apps: process.env.APP_SWITCHER_APPS || 'sfu,p2p,c2c,bro,cme,cloud', // shown apps, in order (rnd and admin are opt-in)
+                urls: {
+                    sfu: process.env.APP_SWITCHER_SFU_URL || '',
+                    p2p: process.env.APP_SWITCHER_P2P_URL || '',
+                    c2c: process.env.APP_SWITCHER_C2C_URL || '',
+                    bro: process.env.APP_SWITCHER_BRO_URL || '',
+                    cme: process.env.APP_SWITCHER_CME_URL || '',
+                    rnd: process.env.APP_SWITCHER_RND_URL || '',
+                    cloud: process.env.APP_SWITCHER_CLOUD_URL || '',
+                    admin: process.env.APP_SWITCHER_ADMIN_URL || '',
+                },
+                docsUrl: process.env.APP_SWITCHER_DOCS_URL ?? 'https://github.com/sepehrsdq/Sepehr-Meeting/', // footer link, empty hides it
+            },
+
+            /**
+             * Who Are You? Section
+             * ---------------------
+             * Prompts users to identify themselves before joining a room.
+             * Customizable text and button labels.
+             */
+            whoAreYou: {
+                title: process.env.WHO_ARE_YOU_TITLE || 'Sepehr Meeting - Waiting for host to start the meeting',
+                waitingRoomHeading: process.env.WHO_ARE_YOU_WAITING_ROOM_HEADING || 'Waiting for host...',
+                waitingRoomDescription:
+                    process.env.WHO_ARE_YOU_WAITING_ROOM_DESCRIPTION ||
+                    "The meeting hasn't started yet.<br />You'll join automatically when the host opens the room.",
+                waitingRoomStatus: process.env.WHO_ARE_YOU_WAITING_ROOM_STATUS || 'Checking room status...',
+                waitingRoomReady: process.env.WHO_ARE_YOU_WAITING_ROOM_READY || 'Room is ready! Joining...',
+                waitingRoomWaiting:
+                    process.env.WHO_ARE_YOU_WAITING_ROOM_WAITING || 'Waiting for host to start the meeting...',
+                waitingRoomHostLink: process.env.WHO_ARE_YOU_WAITING_ROOM_HOST_LINK || 'Are you the host?',
+                waitingRoomLoginLink: process.env.WHO_ARE_YOU_WAITING_ROOM_LOGIN_LINK || 'Login here',
+                waitingRoomElapsedJust: process.env.WHO_ARE_YOU_WAITING_ROOM_ELAPSED_JUST || 'Just started waiting',
+                waitingRoomElapsedMinutes:
+                    process.env.WHO_ARE_YOU_WAITING_ROOM_ELAPSED_MINUTES || 'Waiting for {minutes}',
+                waitingRoomSongUrl: process.env.WHO_ARE_YOU_WAITING_ROOM_SONG_URL || '../sounds/waiting-music.mp3',
+            },
+
+            /**
+             * Login Page Section
+             * ---------------------
+             * Customizable heading, description, and button label for the login page.
+             */
+            login: {
+                heading: process.env.LOGIN_HEADING || 'Welcome back',
+                description: process.env.LOGIN_DESCRIPTION || 'Enter your credentials to continue.',
+                buttonLabel: process.env.LOGIN_BUTTON_LABEL || 'Login',
+            },
+
+            /**
+             * About/Credits Section
+             * ---------------------
+             * Contains author information, version, and support links.
+             * Supports HTML content for flexible formatting.
+             */
+            about: {
+                imageUrl: process.env.ABOUT_IMAGE_URL || '../images/logo.svg',
+                title: `WebRTC SFU v${packageJson.version}`,
+                html: `
+                    <div class="about-content">
+                        <p class="about-description">
+                            Self-hosted group video meetings with scalable WebRTC conferencing.
+                        </p>
+                        <a
+                            class="about-primary-action"
+                            data-umami-event="About button"
+                            href="${process.env.SUPPORT_URL || '/'}"
+                            rel="noopener noreferrer"
+                        >
+                            <i class="fas fa-info-circle" aria-hidden="true"></i>
+                            <span>${process.env.SUPPORT_TEXT || 'About'}</span>
+                        </a>
+                        <footer class="about-footer">
+                            &copy; ${new Date().getFullYear()} ${process.env.COPYRIGHT_TEXT || 'Sepehr Meeting. All rights reserved.'}
+                        </footer>
+                    </div>
+                `,
+            },
+
+            /**
+             * Widget Configuration
+             * --------------------
+             * Controls the appearance and behavior of the support widget.
+             * Supports dynamic configuration via environment variables.
+             */
+            widget: {
+                enabled: process.env.WIDGET_ENABLED === 'true',
+                roomId: process.env.WIDGET_ROOM_ID || 'support-room',
+                theme: process.env.WIDGET_THEME || 'dark',
+                widgetState: process.env.WIDGET_STATE || 'minimized',
+                widgetType: process.env.WIDGET_TYPE || 'support',
+                supportWidget: {
+                    position: process.env.WIDGET_SUPPORT_POSITION || 'top-right',
+                    expertImages: process.env.WIDGET_SUPPORT_EXPERT_IMAGES
+                        ? process.env.WIDGET_SUPPORT_EXPERT_IMAGES.split(splitChar)
+                              .map((url) => url.trim())
+                              .filter(Boolean)
+                        : [
+                              'https://photo.cloudron.pocketsolution.net/uploads/original/95/7d/a5f7f7a2c89a5fee7affda5f013c.jpeg',
+                          ],
+                    buttons: {
+                        audio: process.env.WIDGET_SUPPORT_BUTTON_AUDIO !== 'false',
+                        video: process.env.WIDGET_SUPPORT_BUTTON_VIDEO !== 'false',
+                        screen: process.env.WIDGET_SUPPORT_BUTTON_SCREEN !== 'false',
+                        chat: process.env.WIDGET_SUPPORT_BUTTON_CHAT !== 'false',
+                        join: process.env.WIDGET_SUPPORT_BUTTON_JOIN !== 'false',
+                    },
+                    checkOnlineStatus: process.env.WIDGET_SUPPORT_CHECK_ONLINE_STATUS === 'true',
+                    isOnline: process.env.WIDGET_SUPPORT_IS_ONLINE !== 'false',
+                    customMessages: {
+                        heading: process.env.WIDGET_SUPPORT_HEADING || 'Need Help?',
+                        subheading:
+                            process.env.WIDGET_SUPPORT_SUBHEADING || 'Get instant support from our expert team!',
+                        connectText: process.env.WIDGET_SUPPORT_CONNECT_TEXT || 'connect in < 5 seconds',
+                        onlineText: process.env.WIDGET_SUPPORT_ONLINE_TEXT || 'We are online',
+                        offlineText: process.env.WIDGET_SUPPORT_OFFLINE_TEXT || 'We are offline',
+                        poweredBy: process.env.WIDGET_SUPPORT_POWERED_BY || 'Sepehr Meeting',
+                    },
+                },
+                alert: {
+                    enabled: process.env.WIDGET_ALERT_ENABLED === 'true',
+                    type: process.env.WIDGET_ALERT_TYPE || 'email',
+                },
+            },
+            //...
+        },
+
+        /**
+         * Theme definitions — CSS custom properties for each theme.
+         * Admins can override individual themes or add new ones.
+         * The client merges these with built-in defaults, so you
+         * only need to specify the properties you want to change.
+         */
+        themes: {
+            /* Example: override default theme background
+            default: {
+                '--body-bg': 'linear-gradient(135deg, #1a1a2e, #0a0a14)',
+                '--msger-bg': 'linear-gradient(135deg, #1a1a2e, #0a0a14)',
+            },
+            */
+            /* Example: add a custom theme
+            ocean: {
+                '--body-bg': 'linear-gradient(135deg, #0d2137, #061220)',
+                '--trx-bg': 'linear-gradient(135deg, #0d2137, #061220)',
+                '--msger-bg': 'linear-gradient(135deg, #0d2137, #061220)',
+                '--left-msg-bg': '#112d4a',
+                '--right-msg-bg': '#0a1f35',
+                '--private-msg-bg': '#0e2540',
+                '--select-bg': '#0f2a45',
+                '--select-focus-color': 'rgba(56, 189, 248, 0.5)',
+                '--tab-btn-active': '#163d5e',
+                '--settings-bg': 'linear-gradient(135deg, #0d2137, #061220)',
+                '--wb-bg': 'linear-gradient(135deg, #0d2137, #061220)',
+                '--btns-bg-color': 'rgba(6, 18, 32, 0.75)',
+                '--dd-color': '#38BDF8',
+            },
+            */
+        },
+
+        /**
+         * UI Button Configuration
+         * ---------------------
+         * Organized by component/functionality area
+         */
+        buttons: {
+            // Popup Configuration
+            popup: {
+                shareRoomPopup: process.env.SHOW_SHARE_ROOM_POPUP !== 'false',
+                shareRoomQrOnHover: process.env.SHOW_SHARE_ROOM_QR_ON_HOVER !== 'false',
+            },
+            // Main control buttons visible in the UI
+            main: {
+                shareButton: process.env.SHOW_SHARE_BUTTON !== 'false',
+                hideMeButton: process.env.SHOW_HIDE_ME !== 'false',
+                fullScreenButton: process.env.SHOW_FULLSCREEN_BUTTON !== 'false',
+                startAudioButton: process.env.SHOW_AUDIO_BUTTON !== 'false',
+                startVideoButton: process.env.SHOW_VIDEO_BUTTON !== 'false',
+                startScreenButton: process.env.SHOW_SCREEN_BUTTON !== 'false',
+                swapCameraButton: process.env.SHOW_SWAP_CAMERA !== 'false',
+                chatButton: process.env.SHOW_CHAT_BUTTON !== 'false',
+                participantsButton: process.env.SHOW_PARTICIPANTS_BUTTON !== 'false',
+                pollButton: process.env.SHOW_POLL_BUTTON !== 'false',
+                speechRecButton: process.env.SHOW_SPEECH_REC_BUTTON !== 'false',
+                breakoutRoomButton: process.env.SHOW_BREAKOUT_ROOM_BUTTON !== 'false',
+                editorButton: process.env.SHOW_EDITOR_BUTTON !== 'false',
+                raiseHandButton: process.env.SHOW_RAISE_HAND !== 'false',
+                transcriptionButton: process.env.SHOW_TRANSCRIPTION !== 'false',
+                whiteboardButton: process.env.SHOW_WHITEBOARD !== 'false',
+                documentPiPButton: process.env.SHOW_DOCUMENT_PIP !== 'false',
+                snapshotRoomButton: process.env.SHOW_SNAPSHOT !== 'false',
+                emojiRoomButton: process.env.SHOW_EMOJI !== 'false',
+                settingsButton: process.env.SHOW_SETTINGS !== 'false',
+                aboutButton: process.env.SHOW_ABOUT !== 'false',
+                exitButton: process.env.SHOW_EXIT_BUTTON !== 'false',
+                extraButton: process.env.SHOW_EXTRA_BUTTON !== 'false',
+            },
+            // Settings panel buttons and options
+            settings: {
+                activeRooms: process.env.SHOW_ROOMS !== 'false',
+                fileSharing: process.env.ENABLE_FILE_SHARING !== 'false',
+                lockRoomButton: process.env.SHOW_LOCK_ROOM !== 'false',
+                unlockRoomButton: process.env.SHOW_UNLOCK_ROOM !== 'false',
+                broadcastingButton: process.env.SHOW_BROADCASTING !== 'false',
+                lobbyButton: process.env.SHOW_LOBBY !== 'false',
+                joinLockButton: process.env.SHOW_JOIN_LOCK !== 'false',
+                sendEmailInvitation: process.env.SHOW_EMAIL_INVITE !== 'false',
+                micOptionsButton: process.env.SHOW_MIC_OPTIONS !== 'false',
+                tabRTMPStreamingBtn: process.env.SHOW_RTMP_TAB !== 'false',
+                tabWhipBtn: process.env.SHOW_WHIP_TAB !== 'false',
+                tabSipPhoneBtn: process.env.SHOW_SIP_TAB !== 'false',
+                tabNotificationsBtn: process.env.SHOW_NOTIFICATIONS_TAB !== 'false',
+                tabNetworkBtn: process.env.SHOW_NETWORK_TAB !== 'false',
+                tabModerator: process.env.SHOW_MODERATOR_TAB !== 'false',
+                tabVideoAIBtn: process.env.SHOW_VIDEOAI_TAB !== 'false',
+                tabRecording: process.env.SHOW_RECORDING_TAB !== 'false',
+                host_only_recording: process.env.HOST_ONLY_RECORDING !== 'false',
+                pushToTalk: process.env.ENABLE_PUSH_TO_TALK !== 'false',
+                keyboardShortcuts: process.env.SHOW_KEYBOARD_SHORTCUTS !== 'false',
+                virtualBackground: process.env.SHOW_VIRTUAL_BACKGROUND !== 'false',
+                videoEffects: process.env.SHOW_VIDEO_EFFECTS !== 'false', // face accessories and filters, processed locally in the browser
+                roomBackground: process.env.SHOW_ROOM_BACKGROUND !== 'false', // per-user image behind the video grid, stored only in the browser
+                customNoiseSuppression: process.env.CUSTOM_NOISE_SUPPRESSION_ENABLED !== 'false',
+                customNoiseSuppressionDefault: process.env.CUSTOM_NOISE_SUPPRESSION_DEFAULT !== 'false', // initial state, users can still toggle it
+            },
+
+            // Video controls for producer (local user)
+            producerVideo: {
+                videoPictureInPicture: process.env.ENABLE_PIP !== 'false',
+                videoMirrorButton: process.env.SHOW_MIRROR_BUTTON !== 'false',
+                pinVideoButton: process.env.SHOW_PIN_BUTTON !== 'false',
+                fullScreenButton: process.env.SHOW_FULLSCREEN !== 'false',
+                snapShotButton: process.env.SHOW_SNAPSHOT_BUTTON !== 'false',
+                focusVideoButton: process.env.SHOW_FOCUS_BUTTON !== 'false',
+                muteAudioButton: process.env.SHOW_MUTE_AUDIO !== 'false',
+                videoPrivacyButton: process.env.SHOW_PRIVACY_TOGGLE !== 'false',
+                audioVolumeInput: process.env.SHOW_VOLUME_CONTROL !== 'false',
+                drawingButton: process.env.SHOW_DRAWING_BUTTON !== 'false',
+            },
+
+            // Video controls for consumer (remote users)
+            consumerVideo: {
+                videoPictureInPicture: process.env.ENABLE_PIP !== 'false',
+                videoMirrorButton: process.env.SHOW_MIRROR_BUTTON !== 'false',
+                pinVideoButton: process.env.SHOW_PIN_BUTTON !== 'false',
+                fullScreenButton: process.env.SHOW_FULLSCREEN !== 'false',
+                snapShotButton: process.env.SHOW_SNAPSHOT_BUTTON !== 'false',
+                focusVideoButton: process.env.SHOW_FOCUS_BUTTON !== 'false',
+                hideFromGridButton: process.env.SHOW_HIDE_FROM_GRID_BUTTON !== 'false',
+                sendMessageButton: process.env.SHOW_SEND_MESSAGE !== 'false',
+                sendFileButton: process.env.SHOW_SEND_FILE !== 'false',
+                sendVideoButton: process.env.SHOW_SEND_VIDEO !== 'false',
+                muteVideoButton: process.env.SHOW_MUTE_VIDEO !== 'false',
+                muteAudioButton: process.env.SHOW_MUTE_AUDIO !== 'false',
+                audioVolumeInput: process.env.SHOW_VOLUME_CONTROL !== 'false',
+                geolocationButton: process.env.SHOW_GEO_LOCATION !== 'false',
+                banButton: process.env.SHOW_BAN_BUTTON !== 'false',
+                ejectButton: process.env.SHOW_EJECT_BUTTON !== 'false',
+                presenterRoleButton: process.env.SHOW_PRESENTER_ROLE_BUTTON !== 'false',
+                drawingButton: process.env.SHOW_DRAWING_BUTTON !== 'false',
+            },
+
+            // Controls when video is off
+            videoOff: {
+                pinVideoButton: process.env.SHOW_PIN_BUTTON !== 'false',
+                hideFromGridButton: process.env.SHOW_HIDE_FROM_GRID_BUTTON !== 'false',
+                sendMessageButton: process.env.SHOW_SEND_MESSAGE !== 'false',
+                sendFileButton: process.env.SHOW_SEND_FILE !== 'false',
+                sendVideoButton: process.env.SHOW_SEND_VIDEO !== 'false',
+                muteAudioButton: process.env.SHOW_MUTE_AUDIO !== 'false',
+                audioVolumeInput: process.env.SHOW_VOLUME_CONTROL !== 'false',
+                geolocationButton: process.env.SHOW_GEO_LOCATION !== 'false',
+                banButton: process.env.SHOW_BAN_BUTTON !== 'false',
+                ejectButton: process.env.SHOW_EJECT_BUTTON !== 'false',
+                presenterRoleButton: process.env.SHOW_PRESENTER_ROLE_BUTTON !== 'false',
+            },
+
+            // Controls for shared video/audio feeds
+            videoShare: {
+                pinVideoButton: process.env.SHOW_PIN_BUTTON !== 'false',
+                fullScreenButton: process.env.SHOW_FULLSCREEN !== 'false',
+            },
+
+            // Chat interface controls
+            chat: {
+                chatPinButton: process.env.SHOW_CHAT_PIN !== 'false',
+                chatMaxButton: process.env.SHOW_CHAT_MAXIMIZE !== 'false',
+                chatSaveButton: process.env.SHOW_CHAT_SAVE !== 'false',
+                chatEmojiButton: process.env.SHOW_CHAT_EMOJI !== 'false',
+                chatGifButton: process.env.SHOW_CHAT_GIF !== 'false',
+                chatTranslateButton: process.env.SHOW_CHAT_TRANSLATE !== 'false', // Shown only when chatTranslation is enabled
+                chatMarkdownButton: process.env.SHOW_CHAT_MARKDOWN !== 'false',
+                chatSpeechStartButton: process.env.SHOW_CHAT_SPEECH !== 'false',
+                chatGPT: process.env.ENABLE_CHAT_GPT !== 'false',
+                deepSeek: process.env.ENABLE_DEEP_SEEK !== 'false',
+                chatTyping: process.env.ENABLE_CHAT_TYPING !== 'false',
+            },
+
+            // Poll interface controls
+            poll: {
+                pollPinButton: process.env.SHOW_POLL_PIN !== 'false',
+                pollMaxButton: process.env.SHOW_POLL_MAXIMIZE !== 'false',
+                pollSaveButton: process.env.SHOW_POLL_SAVE !== 'false',
+            },
+
+            // Participants list controls
+            participantsList: {
+                saveInfoButton: process.env.SHOW_SAVE_INFO !== 'false',
+                sendFileAllButton: process.env.SHOW_SEND_FILE_ALL !== 'false',
+                ejectAllButton: process.env.SHOW_EJECT_ALL !== 'false',
+                sendFileButton: process.env.SHOW_SEND_FILE !== 'false',
+                geoLocationButton: process.env.SHOW_GEO_LOCATION !== 'false',
+                banButton: process.env.SHOW_BAN_BUTTON !== 'false',
+                ejectButton: process.env.SHOW_EJECT_BUTTON !== 'false',
+                presenterRoleButton: process.env.SHOW_PRESENTER_ROLE_BUTTON !== 'false',
+            },
+
+            // Whiteboard controls
+            whiteboard: {
+                whiteboardLockButton: process.env.SHOW_WB_LOCK !== 'false',
+            },
+        },
+    },
+
+    // ==============================================
+    // 8. Feature Flags
+    // ==============================================
+
+    features: {
+        /**
+         * Survey Configuration (QuestionPro)
+         * =================================
+         * Settings for user feedback and survey integration
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Sign up at https://www.questionpro.com/
+         * 2. Create survey:
+         *    - Use template or custom questions
+         *    - Configure survey logic and branching
+         * 3. Get survey URL:
+         *    - Publish survey
+         *    - Copy "Collect Responses" link
+         */
+        survey: {
+            enabled: process.env.SURVEY_ENABLED === 'true',
+            url: process.env.SURVEY_URL || '',
+        },
+
+        /**
+         * Post-Call Redirect
+         * ---------------------
+         * - enabled: Redirect after call ends
+         * - url: Redirect destination URL
+         */
+        redirect: {
+            enabled: process.env.REDIRECT_ENABLED === 'true',
+            url: process.env.REDIRECT_URL || '',
+        },
+
+        /**
+         * Meeting Scheduler
+         * ---------------------
+         * - enabled: Show "Schedule Meeting" button on landing/newroom pages
+         * - Requires email configuration (integrations.email) to send invitations
+         * - Sends .ics calendar attachments with meeting details
+         * - requireAuth: Require authenticated requester before sending invitations
+         * - maxRecipients: Maximum recipients accepted per request
+         * - allowedDomains: Optional recipient domain allow-list (empty = all domains)
+         * - rateLimit: Throttle requests to prevent abuse
+         */
+        scheduleMeeting: {
+            enabled: process.env.SCHEDULE_MEETING_ENABLED === 'true',
+            requireAuth: process.env.SCHEDULE_MEETING_REQUIRE_AUTH !== 'false',
+            maxRecipients: Math.max(parseInt(process.env.SCHEDULE_MEETING_MAX_RECIPIENTS, 10) || 20, 1),
+            allowedDomains: (process.env.SCHEDULE_MEETING_ALLOWED_DOMAINS || '')
+                .split(splitChar)
+                .map((domain) => domain.trim().toLowerCase())
+                .filter(Boolean),
+            rateLimit: {
+                windowMs:
+                    Math.max(parseInt(process.env.SCHEDULE_MEETING_RATE_LIMIT_WINDOW_MINUTES, 10) || 60, 1) * 60 * 1000,
+                max: Math.max(parseInt(process.env.SCHEDULE_MEETING_RATE_LIMIT_MAX, 10) || 5, 1),
+            },
+        },
+
+        /**
+         * Remote Control (RustDesk)
+         * -------------------------
+         * Optional, disabled by default. Browsers cannot inject OS-level mouse/keyboard input,
+         * so the app only brokers the consent handshake: a presenter confirms before sending a request, the
+         * participant accepts and shares their RustDesk ID + one-time password, and the presenter
+         * opens the RustDesk client (https://rustdesk.com). No input data goes through this server.
+         * - enabled: Show "Remote control" in the presenter's participants menu
+         * - downloadUrl: Where participants can get the RustDesk client. Defaults to the built-in
+         *   setup page (/remote-control/setup) when server.idServer is set, else rustdesk.com
+         * - downloadUrlPublic: false = /remote-control/setup needs the short-lived token sent with a request;
+         *   true = open to anyone with the URL
+         * - server: Your self-hosted RustDesk server, shown on the public setup page
+         *   (key = contents of id_ed25519.pub, never the private key)
+         */
+        remoteControl: {
+            enabled: process.env.REMOTE_CONTROL_ENABLED === 'true',
+            downloadUrl:
+                process.env.REMOTE_CONTROL_DOWNLOAD_URL ||
+                (process.env.REMOTE_CONTROL_SERVER_HOST ? '/remote-control/setup' : 'https://rustdesk.com/'),
+            downloadUrlPublic: process.env.REMOTE_CONTROL_DOWNLOAD_URL_PUBLIC === 'true',
+            server: {
+                idServer: process.env.REMOTE_CONTROL_SERVER_HOST || '',
+                relayServer: process.env.REMOTE_CONTROL_SERVER_RELAY || '',
+                apiServer: process.env.REMOTE_CONTROL_SERVER_API || '',
+                key: process.env.REMOTE_CONTROL_SERVER_KEY || '',
+            },
+        },
+
+        /**
+         * Socket.IO createRoom and HTTP /createRoomToken rate limit (per IP)
+         * -------------------------------------------------------------------
+         * Prevents unauthenticated sockets from spamming arbitrary entries
+         * into the in-memory roomList (which feeds /api/v1/activeRooms),
+         * and throttles room creation token requests.
+         */
+        createRoomRateLimit: {
+            windowMs: Math.max(parseInt(process.env.CREATE_ROOM_RATE_LIMIT_WINDOW_MINUTES, 10) || 1, 1) * 60 * 1000,
+            max: Math.max(parseInt(process.env.CREATE_ROOM_RATE_LIMIT_MAX, 10) || 10, 1),
+        },
+
+        /**
+         * Usage Statistics Configuration (Umami)
+         * =====================================
+         * Privacy-focused analytics tracking for service improvement
+         *
+         * Setup Instructions:
+         * ------------------
+         * 1. Self-host Umami or use cloud version:
+         *    - GitHub: https://github.com/umami-software/umami
+         *    - Official Docs: https://umami.is/docs
+         * 2. Create website entry in Umami dashboard
+         * 3. Obtain tracking script URL and website ID
+         *
+         * Privacy & Security:
+         * ------------------
+         * - No cookies used (GDPR compliant)
+         * - No persistent user tracking
+         * - All data aggregated and anonymized
+         * - Self-hosted option keeps data in your infrastructure
+         *
+         * Core Settings:
+         * -------------
+         * - enabled      : Enable/disable analytics [true/false] (default: true)
+         * - src          : Umami tracking script URL
+         * - id           : Your website ID from Umami
+         */
+        stats: {
+            enabled: process.env.STATS_ENABLED !== 'false',
+            src: process.env.STATS_SRC || '',
+            id: process.env.STATS_ID || '41d26670-f275-45bb-af82-3ce91fe57756',
+        },
+    },
+
+    /**
+     * Moderation Configuration
+     * =======================
+     * Controls global moderation features.
+     *
+     * Core Settings:
+     * --------------
+     * - room.maxParticipants: Maximum number of participants allowed per room.
+     * - lobby: Enable/disable lobby feature for pre-approval of participants.
+     *   Adjust to limit room size and manage server load.
+     */
+    moderation: {
+        room: {
+            maxParticipants: parseInt(process.env.ROOM_MAX_PARTICIPANTS) || 1000, // Maximum participants per room
+            lobby: process.env.ROOM_LOBBY === 'true', // Enable lobby feature
+        },
+    },
+
+    /**
+     * Horizontal Scaling Configuration (optional, disabled by default)
+     * ===============================================================
+     * Two independent levels, enable one or both:
+     *
+     * 1. Multi-worker rooms (single server)
+     *    A room fills its router up to `maxPeersPerRouter` peers, then spills onto a new router on the
+     *    least loaded mediasoup worker. Producers are piped between the routers (router.pipeToRouter),
+     *    so one big room can use several CPU cores. No extra infrastructure needed.
+     *
+     * 2. Cluster (several servers, needs Redis)
+     *    Every room is hosted entirely by one node. Nodes register themselves in Redis, new rooms are placed
+     *    on the least loaded node and every room entry point (/join, /whoAreYou, WHIP) redirects the browser
+     *    to the node hosting the room. REST API stats/meetings/activeRooms are aggregated cluster-wide.
+     *    Requirements:
+     *    - A private Redis/Valkey reachable by every node (standalone or managed, Redis Cluster mode is not supported)
+     *    - Every node reachable on its own public URL (SCALING_NODE_URL) with its own SFU_ANNOUNCED_IP
+     *    - Same secrets on every node (JWT_KEY, API_KEY_SECRET, HOST_USERS, OIDC...)
+     *
+     * Docs: see docs/scalability.md
+     */
+    scaling: {
+        multiWorkerRooms: {
+            enabled: process.env.SCALING_MULTI_WORKER_ROOMS === 'true',
+            maxPeersPerRouter: parseInt(process.env.SCALING_MAX_PEERS_PER_ROUTER) || 20, // Peers per router before spilling to another worker
+        },
+        cluster: {
+            enabled: process.env.SCALING_CLUSTER === 'true',
+            redisUrl: process.env.SCALING_REDIS_URL || 'redis://localhost:6379',
+            nodeId: process.env.SCALING_NODE_ID || '', // Unique per node, defaults to hostname-pid
+            nodeUrl: process.env.SCALING_NODE_URL || '', // Public URL of THIS node, e.g. https://sfu1.example.com (required)
+            keyPrefix: process.env.SCALING_KEY_PREFIX || 'sepehrmeet', // Redis keys/channels prefix
+            heartbeatInterval: parseInt(process.env.SCALING_HEARTBEAT_INTERVAL) || 5, // Seconds between node heartbeats
+            nodeTtl: parseInt(process.env.SCALING_NODE_TTL) || 15, // Seconds before a silent node is considered dead
+            roomReservationTtl: parseInt(process.env.SCALING_ROOM_RESERVATION_TTL) || 600, // Seconds a placed room stays reserved before its first peer joins
+            maxPeersPerNode: parseInt(process.env.SCALING_MAX_PEERS_PER_NODE) || 0, // Stop placing new rooms on a node above this (0 = unlimited)
+        },
+    },
+
+    // ==============================================
+    // 9. Mediasoup (WebRTC) Configuration
+    // ==============================================
+
+    /**
+     * Mediasoup Integration Resources
+     * ==============================
+     * Core WebRTC components powering Sepehr Meeting
+     *
+     * Essential Links:
+     * ---------------
+     * - 🌐 Website     : https://mediasoup.org
+     * - 💬 Forum       : https://mediasoup.discourse.group
+     *
+     * 📚 Documentation:
+     * ----------------
+     * - Client API     : https://mediasoup.org/documentation/v3/mediasoup-client/api/
+     * - Server API     : https://mediasoup.org/documentation/v3/mediasoup/api/
+     * - Protocols      : https://mediasoup.org/documentation/v3/mediasoup/rtp-parameters-and-capabilities/
+     *
+     * 🔧 Key Components:
+     * -----------------
+     * - Router         : Manages RTP streams
+     * - Transport      : Network connection handler
+     * - Producer       : Media sender
+     * - Consumer       : Media receiver
+     *
+     * Mediasoup Configuration
+     * -----------------------
+     * This configuration defines settings for mediasoup workers, routers,
+     * WebRTC servers, and transports. These settings control how the SFU
+     * (Selective Forwarding Unit) handles media processing and networking.
+     */
+    mediasoup: {
+        /**
+         * Worker Configuration
+         * --------------------
+         * Workers are separate processes that handle media processing.
+         * Multiple workers can run in parallel for load balancing.
+         */
+        worker: {
+            rtcMinPort: RTC_MIN_PORT, // Minimum UDP/TCP port for ICE, DTLS, RTP
+            rtcMaxPort: RTC_MAX_PORT, // Maximum UDP/TCP port for ICE, DTLS, RTP
+
+            // Disable Linux io_uring for certain operations (false = use if available)
+            disableLiburing: false,
+
+            // Logging level (error, warn, debug, etc.)
+            logLevel: process.env.MEDIASOUP_LOG_LEVEL || 'error',
+
+            // Detailed logging for specific components:
+            logTags: [
+                'info', // General information
+                'ice', // ICE (Interactive Connectivity Establishment) events
+                'dtls', // DTLS handshake and encryption
+                'rtp', // RTP packet flow
+                'srtp', // Secure RTP encryption
+                'rtcp', // RTCP control protocol
+                'rtx', // Retransmissions
+                'bwe', // Bandwidth estimation
+                'score', // Network score calculations
+                'simulcast', // Simulcast layers
+                'svc', // Scalable Video Coding
+                'sctp', // SCTP data channels
+            ],
+        },
+        numWorkers: NUM_WORKERS, // Number of mediasoup worker processes to create
+
+        /**
+         * Router Configuration
+         * --------------------
+         * Routers manage media streams and define what codecs are supported.
+         * Each mediasoup worker can host multiple routers.
+         */
+        router: {
+            // Enable audio level monitoring (for detecting who is speaking)
+            audioLevelObserverEnabled: process.env.MEDIASOUP_ROUTER_AUDIO_LEVEL_OBSERVER_ENABLED !== 'false',
+
+            // Disable active speaker detection (uses more CPU)
+            activeSpeakerObserverEnabled: process.env.MEDIASOUP_ROUTER_ACTIVE_SPEAKER_OBSERVER_ENABLED === 'true',
+
+            /**
+             * Supported Media Codecs
+             * ----------------------
+             * Defines what codecs the SFU can receive and forward.
+             * Order matters - first is preferred during negotiation.
+             */
+            mediaCodecs: [
+                // Opus audio codec (standard for WebRTC)
+                {
+                    kind: 'audio',
+                    mimeType: 'audio/opus',
+                    clockRate: 48000, // Standard sample rate for WebRTC
+                    channels: 2, // Stereo audio
+                },
+
+                // VP8 video codec (widely supported, good for compatibility)
+                {
+                    kind: 'video',
+                    mimeType: 'video/VP8',
+                    clockRate: 90000, // Standard video clock rate
+                    parameters: {
+                        'x-google-start-bitrate': 1000, // Initial bitrate (kbps)
+                    },
+                },
+
+                // VP9 video codec (better compression than VP8)
+                // Profile 0: Most widely supported VP9 profile
+                {
+                    kind: 'video',
+                    mimeType: 'video/VP9',
+                    clockRate: 90000,
+                    parameters: {
+                        'profile-id': 0, // Baseline profile
+                        'x-google-start-bitrate': 1000,
+                    },
+                },
+
+                // VP9 Profile 2: Supports HDR and 10/12-bit color
+                {
+                    kind: 'video',
+                    mimeType: 'video/VP9',
+                    clockRate: 90000,
+                    parameters: {
+                        'profile-id': 2, // Advanced profile
+                        'x-google-start-bitrate': 1000,
+                    },
+                },
+
+                // H.264 Baseline profile (widest hardware support)
+                {
+                    kind: 'video',
+                    mimeType: 'video/h264',
+                    clockRate: 90000,
+                    parameters: {
+                        'packetization-mode': 1, // Required for WebRTC
+                        'profile-level-id': '42e01f', // Baseline 3.1
+                        'level-asymmetry-allowed': 1, // Allows different levels
+                        'x-google-start-bitrate': 1000,
+                    },
+                },
+
+                // H.264 Main profile (better compression than Baseline)
+                {
+                    kind: 'video',
+                    mimeType: 'video/h264',
+                    clockRate: 90000,
+                    parameters: {
+                        'packetization-mode': 1,
+                        'profile-level-id': '4d0032', // Main 4.0
+                        'level-asymmetry-allowed': 1,
+                        'x-google-start-bitrate': 1000,
+                    },
+                },
+            ],
+        },
+
+        /**
+         * WebRTC Server Configuration
+         * ---------------------------
+         * WebRTC servers handle ICE (connection establishment) and DTLS (encryption).
+         * Can be disabled if using plain WebRtcTransport instead.
+         *
+         * Best used when:
+         * - Running in controlled environments with fixed IPs
+         * - Need to minimize port usage across workers
+         * - Using StatefulSets/DaemonSets in Kubernetes
+         *
+         * Kubernetes considerations:
+         * - Requires stable network identity (use StatefulSet)
+         * - Needs NodePort/LoadBalancer with externalTrafficPolicy: Local
+         * - Port ranges must be carefully allocated to avoid conflicts
+         *
+         * Optional Config:
+         * - https://mediasoup.discourse.group/t/mediasoup-3-17-0-released/6805
+         */
+        webRtcServerActive: process.env.SFU_SERVER === 'true', // Enable if SFU_SERVER=true
+        webRtcServerOptions: {
+            // Network interfaces and ports for ICE candidates
+            listenInfos: [
+                /**
+                 * UDP Configuration
+                 * Preferred for media transport (lower latency)
+                 * Kubernetes implications:
+                 * - Each Pod needs unique ports if sharing host network
+                 * - Consider using hostPort when not using LoadBalancer
+                 */
+                {
+                    protocol: 'udp',
+                    ip: LISTEN_IP, // Local IP to bind to
+                    announcedAddress: IPv4, // Public IP sent to clients
+                    portRange: {
+                        min: RTC_MIN_PORT,
+                        max: RTC_MIN_PORT + NUM_WORKERS, // Port range per worker
+                    },
+                },
+                /**
+                 * TCP Configuration
+                 * Fallback for restrictive networks (higher latency)
+                 * Kubernetes implications:
+                 * - Helps with networks blocking UDP
+                 * - May require separate Service definition in k8s
+                 */
+                {
+                    protocol: 'tcp',
+                    ip: LISTEN_IP,
+                    announcedAddress: IPv4,
+                    portRange: {
+                        min: RTC_MIN_PORT,
+                        max: RTC_MIN_PORT + NUM_WORKERS,
+                    },
+                },
+            ],
+        },
+
+        /**
+         * WebRTC Transport Configuration
+         * ------------------------------
+         * Transports handle the actual media flow between clients and the SFU.
+         * These settings affect bandwidth management and network behavior.
+         *
+         * Preferred when:
+         * - Running in cloud environments with auto-scaling
+         * - Need dynamic port allocation
+         * - Kubernetes Pods are ephemeral
+         *
+         * Kubernetes considerations:
+         * - Requires wide port range exposure (50000-60000 typical)
+         * - Works better with ClusterIP Services
+         * - More resilient to Pod restarts
+         */
+        webRtcTransport: {
+            // Network interfaces for media transmission
+            listenInfos: [
+                /**
+                 * UDP Transport Settings
+                 * Kubernetes implications:
+                 * - Needs hostNetwork or privileged Pod for port access
+                 * - Consider port range size based on expected scale
+                 */
+                {
+                    protocol: 'udp',
+                    ip: LISTEN_IP,
+                    announcedAddress: IPv4,
+                    portRange: {
+                        min: RTC_MIN_PORT,
+                        max: RTC_MAX_PORT, // Wider range than WebRtcServer
+                    },
+                },
+                /**
+                 * TCP Transport Settings
+                 * Kubernetes implications:
+                 * - Less efficient but more compatible
+                 * - May require different Service configuration
+                 */
+                {
+                    protocol: 'tcp',
+                    ip: LISTEN_IP,
+                    announcedAddress: IPv4,
+                    portRange: {
+                        min: RTC_MIN_PORT,
+                        max: RTC_MAX_PORT,
+                    },
+                },
+            ],
+
+            iceConsentTimeout: 35, // Timeout for ICE consent (seconds)
+
+            /**
+             * Bandwidth Control Settings (mediasoup 3.32.0+ built-in BWE)
+             * Passed directly to createWebRtcTransport() at creation time.
+             * Kubernetes implications:
+             * - These values should be tuned based on Node resources
+             * - Consider network plugin overhead (Calico, Cilium etc.)
+             */
+            initialAvailableOutgoingBitrate: 2500000, // 2.5 Mbps initial bitrate
+            minimumAvailableOutgoingBitrate: 1000000, // 1 Mbps minimum guaranteed
+            maxIncomingBitrate: 3000000, // 3 Mbps max per producer
+
+            /**
+             * Data Channel Settings (mediasoup 3.20.0+)
+             * - maxSendMessageSize    : Max size for outgoing SCTP messages (data channels)
+             * - maxReceiveMessageSize : Max size for incoming SCTP messages (data channels)
+             * Replaces the legacy `maxSctpMessageSize` / `numSctpStreams` options.
+             * Kubernetes implications:
+             * - Affects memory allocation per transport
+             * - Larger sizes may require Pod resource adjustments
+             */
+            maxSendMessageSize: 262144, // 256 KB max outgoing data-channel message size
+            maxReceiveMessageSize: 262144, // 256 KB max incoming data-channel message size
+        },
+    },
+};
+
+// ==============================================
+// Helper Functions
+// ==============================================
+
+/**
+ * Get IPv4 Address
+ * ----------------
+ * - Prioritizes ANNOUNCED_IP if set
+ * - Falls back to local IP detection
+ */
+function getIPv4() {
+    if (ANNOUNCED_IP) return ANNOUNCED_IP;
+
+    switch (ENVIRONMENT) {
+        case 'development':
+            return IS_DOCKER ? '127.0.0.1' : getLocalIPv4();
+        case 'production':
+            return ANNOUNCED_IP;
+        default:
+            return getLocalIPv4();
+    }
+}
+
+/**
+ * Detect Local IPv4 Address
+ * -------------------------
+ * - Handles different OS network interfaces
+ * - Filters out virtual/docker interfaces
+ */
+function getLocalIPv4() {
+    const ifaces = os.networkInterfaces();
+    const platform = os.platform();
+
+    const PRIORITY_CONFIG = {
+        win32: [{ name: 'Ethernet' }, { name: 'Wi-Fi' }, { name: 'Local Area Connection' }],
+        darwin: [{ name: 'en0' }, { name: 'en1' }],
+        linux: [{ name: 'eth0' }, { name: 'wlan0' }],
+    };
+
+    const VIRTUAL_INTERFACES = {
+        all: ['docker', 'veth', 'tun', 'lo'],
+        win32: ['Virtual', 'vEthernet', 'Teredo', 'Bluetooth'],
+        darwin: ['awdl', 'bridge', 'utun'],
+        linux: ['virbr', 'kube', 'cni'],
+    };
+
+    const platformPriorities = PRIORITY_CONFIG[platform] || [];
+    const virtualExcludes = [...VIRTUAL_INTERFACES.all, ...(VIRTUAL_INTERFACES[platform] || [])];
+
+    // Check priority interfaces first
+    for (const { name: ifName } of platformPriorities) {
+        const matchingIfaces = platform === 'win32' ? Object.keys(ifaces).filter((k) => k.includes(ifName)) : [ifName];
+        for (const interfaceName of matchingIfaces) {
+            const addr = findValidAddress(ifaces[interfaceName]);
+            if (addr) return addr;
+        }
+    }
+
+    // Fallback to scanning all non-virtual interfaces
+    const fallbackAddress = scanAllInterfaces(ifaces, virtualExcludes);
+    if (fallbackAddress) return fallbackAddress;
+
+    return '0.0.0.0';
+}
+
+/**
+ * Scan All Network Interfaces
+ * ---------------------------
+ * - Checks all interfaces excluding virtual ones
+ */
+function scanAllInterfaces(ifaces, excludes) {
+    for (const [name, addresses] of Object.entries(ifaces)) {
+        if (excludes.some((ex) => name.toLowerCase().includes(ex.toLowerCase()))) {
+            continue;
+        }
+        const addr = findValidAddress(addresses);
+        if (addr) return addr;
+    }
+    return null;
+}
+
+/**
+ * Find Valid Network Address
+ * --------------------------
+ * - Filters out internal and link-local addresses
+ */
+function findValidAddress(addresses) {
+    return addresses?.find((addr) => addr.family === 'IPv4' && !addr.internal && !addr.address.startsWith('169.254.'))
+        ?.address;
+}
+
+/**
+ * Get FFmpeg Path
+ * ---------------
+ * - Checks common installation locations
+ * - Platform-specific paths
+ */
+function getFFmpegPath(platform) {
+    const paths = {
+        darwin: ['/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg'],
+        linux: ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg'],
+        win32: ['C:\\ffmpeg\\bin\\ffmpeg.exe', 'C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe'],
+    };
+
+    const platformPaths = paths[platform] || ['/usr/bin/ffmpeg'];
+
+    for (const path of platformPaths) {
+        try {
+            fs.accessSync(path);
+            return path;
+        } catch (e) {
+            continue;
+        }
+    }
+
+    return platformPaths[0];
+}

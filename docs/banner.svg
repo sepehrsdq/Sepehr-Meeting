@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="340" viewBox="0 0 1280 340" role="img" aria-label="سامانه سپهر — Sepehr Meeting">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1020" />
+      <stop offset="55%" stop-color="#111a33" />
+      <stop offset="100%" stop-color="#0a0f1f" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#0ea5e9" />
+    </linearGradient>
+    <radialGradient id="glowA" cx="82%" cy="10%" r="55%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.42" />
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glowB" cx="8%" cy="92%" r="60%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.30" />
+      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.045" stroke-width="1" />
+    </pattern>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="22" />
+    </filter>
+  </defs>
+
+  <rect width="1280" height="340" fill="url(#bg)" />
+  <rect width="1280" height="340" fill="url(#grid)" />
+  <rect width="1280" height="340" fill="url(#glowA)" />
+  <rect width="1280" height="340" fill="url(#glowB)" />
+
+  <!-- decorative call tiles (subtle, left side) -->
+  <g opacity="0.55">
+    <rect x="96" y="86" width="212" height="122" rx="16" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.10" />
+    <circle cx="150" cy="136" r="17" fill="#ffffff" fill-opacity="0.10" />
+    <circle cx="150" cy="131" r="6" fill="#ffffff" fill-opacity="0.22" />
+    <path d="M139 147c2-7 6-10 11-10s9 3 11 10z" fill="#ffffff" fill-opacity="0.22" />
+    <rect x="178" y="122" width="108" height="7" rx="3.5" fill="#ffffff" fill-opacity="0.14" />
+    <rect x="178" y="138" width="72" height="7" rx="3.5" fill="#ffffff" fill-opacity="0.09" />
+    <rect x="96" y="222" width="212" height="6" rx="3" fill="#ffffff" fill-opacity="0.07" />
+    <rect x="96" y="222" width="128" height="6" rx="3" fill="url(#accent)" fill-opacity="0.55" />
+
+    <rect x="322" y="86" width="120" height="57" rx="13" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.09" />
+    <circle cx="346" cy="114" r="10" fill="#ffffff" fill-opacity="0.10" />
+    <rect x="364" y="108" width="58" height="6" rx="3" fill="#ffffff" fill-opacity="0.12" />
+    <rect x="364" y="120" width="38" height="6" rx="3" fill="#ffffff" fill-opacity="0.08" />
+
+    <rect x="322" y="151" width="120" height="57" rx="13" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.09" />
+    <circle cx="346" cy="179" r="10" fill="#ffffff" fill-opacity="0.10" />
+    <rect x="364" y="173" width="58" height="6" rx="3" fill="#ffffff" fill-opacity="0.12" />
+    <rect x="364" y="185" width="38" height="6" rx="3" fill="#ffffff" fill-opacity="0.08" />
+  </g>
+
+  <!-- brand mark (right side, RTL reading order) -->
+  <g transform="translate(1036 96)">
+    <rect x="0" y="0" width="148" height="148" rx="38" fill="url(#accent)" opacity="0.16" />
+    <rect x="7" y="7" width="134" height="134" rx="32" fill="none" stroke="url(#accent)" stroke-width="2.5" opacity="0.9" />
+    <rect x="34" y="44" width="58" height="60" rx="18" fill="#ffffff" opacity="0.95" />
+    <path d="M100 62 L124 50 V98 L100 86 Z" fill="#ffffff" opacity="0.95" />
+    <circle cx="63" cy="74" r="11" fill="#4f46e5" opacity="0.9" />
+  </g>
+
+  <!-- titles, right-aligned for RTL -->
+  <text x="1000" y="128" text-anchor="end" font-family="'Segoe UI', Tahoma, 'Iranian Sans', sans-serif" font-size="66" font-weight="700" fill="#ffffff">سامانه سپهر</text>
+  <text x="1000" y="176" text-anchor="end" font-family="'Segoe UI', Tahoma, sans-serif" font-size="21" font-weight="600" letter-spacing="7" fill="#a5b4fc">SEPEHR MEETING</text>
+  <text x="1000" y="216" text-anchor="end" font-family="'Segoe UI', Tahoma, 'Iranian Sans', sans-serif" font-size="21" fill="#cbd5e1">جلسات تصویری سازمانی · خودمیزبان · کاملاً فارسی</text>
+
+  <!-- pills, laid out right to left -->
+  <g font-family="'Segoe UI', Tahoma, sans-serif" font-size="15" font-weight="600">
+    <g transform="translate(876 244)">
+      <rect width="124" height="36" rx="18" fill="#ffffff" opacity="0.07" />
+      <rect width="124" height="36" rx="18" fill="none" stroke="#ffffff" stroke-opacity="0.14" />
+      <text x="62" y="24" text-anchor="middle" fill="#e2e8f0">RTL · فارسی</text>
+    </g>
+    <g transform="translate(714 244)">
+      <rect width="150" height="36" rx="18" fill="#ffffff" opacity="0.07" />
+      <rect width="150" height="36" rx="18" fill="none" stroke="#ffffff" stroke-opacity="0.14" />
+      <text x="75" y="24" text-anchor="middle" fill="#e2e8f0">Self-hosted</text>
+    </g>
+    <g transform="translate(616 244)">
+      <rect width="86" height="36" rx="18" fill="#ffffff" opacity="0.07" />
+      <rect width="86" height="36" rx="18" fill="none" stroke="#ffffff" stroke-opacity="0.14" />
+      <text x="43" y="24" text-anchor="middle" fill="#e2e8f0">SFU</text>
+    </g>
+    <g transform="translate(492 244)">
+      <rect width="112" height="36" rx="18" fill="#ffffff" opacity="0.07" />
+      <rect width="112" height="36" rx="18" fill="none" stroke="#ffffff" stroke-opacity="0.14" />
+      <text x="56" y="24" text-anchor="middle" fill="#e2e8f0">WebRTC</text>
+    </g>
+  </g>
+
+  <!-- accent rule -->
+  <rect x="96" y="286" width="1088" height="3" rx="1.5" fill="url(#accent)" opacity="0.75" />
+</svg>

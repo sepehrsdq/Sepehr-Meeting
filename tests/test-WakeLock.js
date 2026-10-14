@@ -1,0 +1,449 @@
+'use strict';
+
+const assert = require('assert/strict');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const sinon = require('sinon');
+
+const source = fs.readFileSync(path.join(__dirname, '..', 'public/js/WakeLock.js'), 'utf8');
+const roomSource = fs.readFileSync(path.join(__dirname, '..', 'public/js/Room.js'), 'utf8');
+
+function deferred() {
+    let resolve;
+    const promise = new Promise((done) => {
+        resolve = done;
+    });
+    return { promise, resolve };
+}
+
+function createSentinel() {
+    let onRelease;
+    const sentinel = {
+        released: false,
+        addEventListener(name, listener) {
+            assert.equal(name, 'release');
+            onRelease = listener;
+        },
+        emitRelease() {
+            this.released = true;
+            onRelease?.();
+        },
+    };
+    sentinel.release = sinon.stub().callsFake(async () => sentinel.emitRelease());
+    return sentinel;
+}
+
+describe('mobile wake-lock lifecycle', () => {
+    let context;
+    let clock;
+    let documentEvents;
+    let windowEvents;
+    let sentinel;
+
+    beforeEach(() => {
+        documentEvents = {};
+        windowEvents = {};
+        sentinel = createSentinel();
+        context = vm.createContext({
+            navigator: { wakeLock: { request: sinon.stub().resolves(sentinel) } },
+            document: {
+                visibilityState: 'visible',
+                pictureInPictureElement: null,
+                addEventListener: (name, handler) => (documentEvents[name] = handler),
+            },
+            window: { addEventListener: (name, handler) => (windowEvents[name] = handler) },
+            console: { info: sinon.spy(), error: sinon.spy() },
+            userLog: sinon.spy(),
+            switchKeepAwake: { checked: false },
+            audio: true,
+            video: false,
+            screen: false,
+            isDesktopDevice: false,
+            setTimeout,
+            clearTimeout,
+        });
+        clock = sinon.useFakeTimers();
+        context.setTimeout = setTimeout;
+        context.clearTimeout = clearTimeout;
+        vm.runInContext(source, context);
+        // Listeners are bound on DOMContentLoaded, once Room.js (loaded after WakeLock.js) defined its globals
+        documentEvents.DOMContentLoaded();
+    });
+
+    afterEach(() => clock.restore());
+
+    it('binds lifecycle listeners only after DOMContentLoaded', () => {
+        const early = {};
+        const earlyContext = vm.createContext({
+            document: { addEventListener: (name, handler) => (early[name] = handler) },
+            window: { addEventListener: (name, handler) => (early[name] = handler) },
+            navigator: {},
+        });
+        vm.runInContext(source, earlyContext);
+        assert.deepEqual(Object.keys(early), ['DOMContentLoaded']);
+        early.DOMContentLoaded();
+        for (const name of [
+            'visibilitychange',
+            'enterpictureinpicture',
+            'leavepictureinpicture',
+            'pagehide',
+            'pageshow',
+        ]) {
+            assert.equal(typeof early[name], 'function', name);
+        }
+    });
+
+    it('does not queue routine acquisition, release, or empty-release notifications', async () => {
+        await context.releaseWakeLock();
+        await context.releaseWakeLock();
+        assert.equal(context.console.info.callCount, 0);
+        await context.requestWakeLock();
+        context.audio = false;
+        await context.releaseWakeLock();
+        await context.releaseWakeLock();
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+        assert.equal(sentinel.release.callCount, 1);
+        assert.equal(context.console.info.callCount, 2);
+        assert.equal(context.userLog.callCount, 0);
+        assert.equal(context.switchKeepAwake.checked, false);
+    });
+
+    it('allows only one in-flight acquisition across repeated media syncs', async () => {
+        const pending = deferred();
+        context.navigator.wakeLock.request.returns(pending.promise);
+        const first = context.syncWakeLock();
+        await context.syncWakeLock();
+        context.applyKeepAwake(true);
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+        pending.resolve(sentinel);
+        await first;
+        assert.equal(context.switchKeepAwake.checked, true);
+        assert.equal(context.userLog.callCount, 0);
+    });
+
+    it('notifies manual activation only after acquisition succeeds', async () => {
+        context.audio = false;
+        const pending = deferred();
+        context.navigator.wakeLock.request.returns(pending.promise);
+        context.applyKeepAwake(true, true);
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 0);
+        pending.resolve(sentinel);
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 1);
+        assert.deepEqual(context.userLog.firstCall.args, ['success', 'Device wake lock is active', 'top-end', 1800]);
+
+        context.navigator.wakeLock.request.resolves(createSentinel());
+        sentinel.emitRelease();
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 2);
+        assert.equal(context.userLog.callCount, 1);
+    });
+
+    it('notifies manual deactivation only after release succeeds', async () => {
+        context.audio = false;
+        context.applyKeepAwake(true);
+        await clock.tickAsync(100);
+        const pending = deferred();
+        sentinel.release.callsFake(async () => {
+            await pending.promise;
+            sentinel.emitRelease();
+        });
+        context.applyKeepAwake(false, true);
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 0);
+        pending.resolve();
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 1);
+        assert.equal(context.userLog.firstCall.args[0], 'info');
+        assert.equal(context.userLog.firstCall.args[1], 'Device wake lock released');
+    });
+
+    it('explains when automatic audio-only wake locking remains active', async () => {
+        await context.requestWakeLock();
+        context.applyKeepAwake(false, true);
+        await clock.tickAsync(100);
+        assert.equal(sentinel.release.callCount, 0);
+        assert.equal(context.userLog.callCount, 1);
+        assert.equal(context.userLog.firstCall.args[0], 'info');
+        assert.match(context.userLog.firstCall.args[1], /audio-only wake lock remains active/);
+    });
+
+    it('confirms manual activation of an already active automatic lock', async () => {
+        await context.requestWakeLock();
+        context.applyKeepAwake(true, true);
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+        assert.equal(context.userLog.callCount, 1);
+        assert.equal(context.userLog.firstCall.args[0], 'success');
+    });
+
+    it('reports manual acquisition failure without a later success notification', async () => {
+        context.navigator.wakeLock.request.rejects(new Error('Permission denied'));
+        context.applyKeepAwake(true, true);
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 1);
+        assert.equal(context.userLog.firstCall.args[0], 'error');
+        assert.equal(context.userLog.firstCall.args[2], 'top-end');
+        context.navigator.wakeLock.request.resolves(sentinel);
+        await context.syncWakeLock();
+        assert.equal(context.userLog.callCount, 1);
+    });
+
+    it('reports manual release failure instead of claiming the lock is off', async () => {
+        context.audio = false;
+        context.applyKeepAwake(true);
+        await clock.tickAsync(100);
+        sentinel.release.rejects(new Error('Release failed'));
+        context.applyKeepAwake(false, true);
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 1);
+        assert.equal(context.userLog.firstCall.args[0], 'error');
+        assert.match(context.userLog.firstCall.args[1], /Release failed/);
+        assert.equal(context.switchKeepAwake.checked, true);
+    });
+
+    it('translates the release error prefix while preserving the browser error', async () => {
+        context.audio = false;
+        context.window.i18n = { t: sinon.stub().returns('Impossibile disattivare il blocco della sospensione:') };
+        context.applyKeepAwake(true);
+        await clock.tickAsync(100);
+        sentinel.release.rejects(new Error('Release failed'));
+        context.applyKeepAwake(false, true);
+        await clock.tickAsync(100);
+        assert.deepEqual(context.window.i18n.t.firstCall.args, ['Failed to release Wake Lock:', 'toasts']);
+        assert.equal(
+            context.userLog.firstCall.args[1],
+            'Impossibile disattivare il blocco della sospensione: Release failed'
+        );
+    });
+
+    it('does not show a stale success when manually disabled during acquisition', async () => {
+        context.audio = false;
+        const pending = deferred();
+        context.navigator.wakeLock.request.returns(pending.promise);
+        context.applyKeepAwake(true, true);
+        await clock.tickAsync(100);
+        context.applyKeepAwake(false, true);
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 0);
+        pending.resolve(sentinel);
+        await clock.tickAsync(100);
+        assert.equal(sentinel.release.callCount, 1);
+        assert.equal(context.userLog.callCount, 1);
+        assert.equal(context.userLog.firstCall.args[0], 'info');
+    });
+
+    it('discards a pending manual notification on pagehide', async () => {
+        context.audio = false;
+        const pending = deferred();
+        context.navigator.wakeLock.request.returns(pending.promise);
+        context.applyKeepAwake(true, true);
+        await clock.tickAsync(100);
+        windowEvents.pagehide();
+        pending.resolve(sentinel);
+        await clock.tickAsync(100);
+        context.navigator.wakeLock.request.resolves(createSentinel());
+        windowEvents.pageshow();
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 0);
+    });
+
+    for (const media of ['video', 'screen']) {
+        it(`honors the manual choice while ${media} is active`, async () => {
+            context.audio = false;
+            context[media] = true;
+            context.applyKeepAwake(true);
+            await clock.tickAsync(100);
+            assert.equal(context.navigator.wakeLock.request.callCount, 1);
+            assert.equal(context.switchKeepAwake.checked, true);
+
+            context.applyKeepAwake(false);
+            await clock.tickAsync(100);
+            assert.equal(sentinel.release.callCount, 1);
+            assert.equal(context.switchKeepAwake.checked, false);
+        });
+    }
+
+    it('preserves the manual choice across room media events', async () => {
+        const events = {};
+        const start = roomSource.indexOf('    rc.on(RoomClient.EVENTS.startAudio,');
+        const end = roomSource.indexOf('    rc.on(RoomClient.EVENTS.roomLock,', start);
+        assert.ok(start !== -1 && end > start);
+        Object.assign(context, {
+            rc: { on: (name, handler) => (events[name] = handler) },
+            RoomClient: { EVENTS: new Proxy({}, { get: (_, name) => name }) },
+            BUTTONS: { main: { startAudioButton: true, startVideoButton: true } },
+            hide() {},
+            show() {},
+            setColor() {},
+            setAudioButtonsDisabled() {},
+            setVideoButtonsDisabled() {},
+            stopMicrophoneProcessing() {},
+            hideClassElements() {},
+            startAudioButton: {},
+            stopAudioButton: {},
+            startVideoButton: {},
+            stopVideoButton: {},
+            startScreenButton: {},
+            stopScreenButton: {},
+            isVideoPrivacyActive: false,
+        });
+        context.console.log = sinon.spy();
+        vm.runInContext(roomSource.slice(start, end), context);
+        context.audio = false;
+        context.applyKeepAwake(true);
+        await clock.tickAsync(100);
+
+        for (const handler of Object.values(events)) {
+            handler();
+            await clock.tickAsync(100);
+            assert.equal(context.switchKeepAwake.checked, true);
+            assert.equal(sentinel.release.callCount, 0);
+        }
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+    });
+
+    it('does not turn media-driven wake locking into a manual choice', async () => {
+        const events = {};
+        const start = roomSource.indexOf('    rc.on(RoomClient.EVENTS.startAudio,');
+        const end = roomSource.indexOf('    rc.on(RoomClient.EVENTS.pauseAudio,', start);
+        Object.assign(context, {
+            rc: { on: (name, handler) => (events[name] = handler) },
+            RoomClient: { EVENTS: { startAudio: 'startAudio' } },
+            hide() {},
+            show() {},
+            setColor() {},
+            setAudioButtonsDisabled() {},
+            startAudioButton: {},
+            stopAudioButton: {},
+        });
+        context.console.log = sinon.spy();
+        vm.runInContext(roomSource.slice(start, end), context);
+        context.video = true;
+        events.startAudio();
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 0);
+        context.video = false;
+        await context.syncWakeLock();
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+        context.audio = false;
+        await context.syncWakeLock();
+        assert.equal(sentinel.release.callCount, 1);
+    });
+
+    for (const state of ['hidden', 'video', 'screen', 'pip', 'pagehide', 'disabled']) {
+        it(`releases an acquisition that finishes after ${state}`, async () => {
+            const pending = deferred();
+            context.navigator.wakeLock.request.returns(pending.promise);
+            const acquiring = context.requestWakeLock();
+            if (state === 'hidden') context.document.visibilityState = 'hidden';
+            if (state === 'video') context.video = true;
+            if (state === 'screen') context.screen = true;
+            if (state === 'pip') context.document.pictureInPictureElement = {};
+            if (state === 'pagehide') windowEvents.pagehide();
+            if (state === 'disabled') {
+                context.audio = false;
+                context.applyKeepAwake(false);
+            }
+            pending.resolve(sentinel);
+            await acquiring;
+            await clock.tickAsync(100);
+            assert.equal(sentinel.release.callCount, 1);
+            assert.equal(context.switchKeepAwake.checked, false);
+            assert.equal(context.navigator.wakeLock.request.callCount, 1);
+            assert.equal(context.userLog.callCount, 0);
+        });
+    }
+
+    it('waits for release before reacquiring when media state changes', async () => {
+        await context.requestWakeLock();
+        const pending = deferred();
+        sentinel.release.callsFake(async () => {
+            await pending.promise;
+            sentinel.emitRelease();
+        });
+        context.video = true;
+        const releasing = context.syncWakeLock();
+        await context.releaseWakeLock();
+        context.video = false;
+        await context.syncWakeLock();
+        assert.equal(sentinel.release.callCount, 1);
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+        const nextSentinel = createSentinel();
+        context.navigator.wakeLock.request.resolves(nextSentinel);
+        pending.resolve();
+        await releasing;
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 2);
+        sentinel.emitRelease();
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 2);
+        assert.equal(context.switchKeepAwake.checked, true);
+    });
+
+    it('reacquires automatically after a browser release without toasts', async () => {
+        await context.requestWakeLock();
+        context.document.visibilityState = 'hidden';
+        sentinel.emitRelease();
+        documentEvents.visibilitychange();
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+        context.navigator.wakeLock.request.resolves(createSentinel());
+        context.document.visibilityState = 'visible';
+        documentEvents.visibilitychange();
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 2);
+        assert.equal(context.userLog.callCount, 0);
+    });
+
+    it('does not reacquire on pagehide and restores after pageshow', async () => {
+        await context.requestWakeLock();
+        windowEvents.pagehide();
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+        context.navigator.wakeLock.request.resolves(createSentinel());
+        windowEvents.pageshow();
+        await clock.tickAsync(100);
+        assert.equal(context.navigator.wakeLock.request.callCount, 2);
+    });
+
+    it('reports request failures and allows a later retry', async () => {
+        context.navigator.wakeLock.request.rejects(new Error('Permission denied'));
+        await context.requestWakeLock();
+        await clock.tickAsync(100);
+        assert.equal(context.userLog.callCount, 1);
+        assert.equal(context.userLog.firstCall.args[0], 'error');
+        assert.match(context.userLog.firstCall.args[1], /Permission denied/);
+        assert.equal(context.switchKeepAwake.checked, false);
+        context.navigator.wakeLock.request.resolves(sentinel);
+        await context.requestWakeLock();
+        assert.equal(context.switchKeepAwake.checked, true);
+    });
+
+    it('reports release failures without losing the active sentinel', async () => {
+        await context.requestWakeLock();
+        sentinel.release.rejects(new Error('Release failed'));
+        await context.releaseWakeLock();
+        assert.equal(context.console.error.callCount, 1);
+        assert.equal(context.switchKeepAwake.checked, true);
+        await context.requestWakeLock();
+        assert.equal(context.navigator.wakeLock.request.callCount, 1);
+        sentinel.release.callsFake(async () => sentinel.emitRelease());
+        context.audio = false;
+        await context.releaseWakeLock();
+        assert.equal(context.switchKeepAwake.checked, false);
+    });
+
+    it('ignores desktop and unsupported devices', async () => {
+        context.isDesktopDevice = true;
+        await context.syncWakeLock();
+        context.isDesktopDevice = false;
+        context.navigator.wakeLock = undefined;
+        await context.syncWakeLock();
+        assert.equal(context.userLog.callCount, 0);
+        assert.equal(context.console.info.callCount, 0);
+    });
+});

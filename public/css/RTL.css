@@ -1,0 +1,87 @@
+/*
+ * Sepehr Meeting - RTL (Right-To-Left) support
+ * Loaded on all pages; only activates when <html dir="rtl"> is set by I18n.js
+ * (Persian, Arabic, Urdu, Hebrew...).
+ *
+ * Rules here are intentionally minimal and layout-level: flip directional
+ * paddings/margins/positions and text alignment. Physical properties that
+ * browsers already mirror under dir=rtl (flex, grid, borders) are not touched.
+ */
+
+html[dir='rtl'] body {
+    text-align: right;
+}
+
+/* ---- Navbar / action bars: keep buttons in natural order but flip offsets ---- */
+html[dir='rtl'] .navbar-dropdown-content {
+    left: auto;
+    right: 0;
+    text-align: right;
+}
+
+/* ---- Video grid labels & overlays ---- */
+html[dir='rtl'] .videoPeerName,
+html[dir='rtl'] .audioPeerName,
+html[dir='rtl'] .videoFullScreenButton,
+html[dir='rtl'] .videoTopButtons {
+    direction: rtl;
+}
+
+/* ---- Chat: align own messages to the left (mirrored), incoming to the right ---- */
+html[dir='rtl'] .msg-body {
+    text-align: right;
+}
+html[dir='rtl'] .message-own {
+    text-align: left;
+}
+
+/* ---- Inputs with icons: flip padding sides ---- */
+html[dir='rtl'] input[type='text'],
+html[dir='rtl'] input[type='password'],
+html[dir='rtl'] input[type='email'],
+html[dir='rtl'] textarea,
+html[dir='rtl'] select {
+    direction: rtl;
+    text-align: right;
+}
+
+/* Room name / search inputs that must stay LTR (usernames, emails, URLs) */
+html[dir='rtl'] input[data-ltr='true'],
+html[dir='rtl'] .keep-ltr {
+    direction: ltr;
+    text-align: left;
+}
+
+/* ---- Toasts & snackbars: flip anchor side ---- */
+html[dir='rtl'] .swal2-toast,
+html[dir='rtl'] .snackbar {
+    left: 0;
+    right: auto;
+}
+
+/* ---- SweetAlert dialogs ---- */
+html[dir='rtl'] .swal2-title,
+html[dir='rtl'] .swal2-html-container,
+html[dir='rtl'] .swal2-actions {
+    direction: rtl;
+}
+
+/* ---- Tooltips follow text direction automatically (tippy) ---- */
+html[dir='rtl'] .tippy-box {
+    direction: rtl;
+    text-align: right;
+}
+
+/* ---- Settings tabs / lists ---- */
+html[dir='rtl'] .switch {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+/* Numbers, codes and IDs stay LTR */
+html[dir='rtl'] .room-id,
+html[dir='rtl'] code,
+html[dir='rtl'] .user-id {
+    direction: ltr;
+    unicode-bidi: embed;
+}

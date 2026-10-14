@@ -1,0 +1,547 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl" class="no-js">
+    <head>
+        <title id="title">سامانه سپهر — جلسات تصویری سازمانی</title>
+        <link id="icon" rel="shortcut icon" href="../images/logo.svg" />
+        <link id="appleTouchIcon" rel="apple-touch-icon" href="../images/logo.svg" />
+
+        <meta charset="utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="light" />
+        <meta
+            id="description"
+            name="description"
+            content="سامانه سپهر؛ بستر جلسات تصویری سازمانی، امن و سریع. بدون نصب، مستقیماً در مرورگر، با میزبانی کامل در شبکه داخلی سازمان."
+        />
+        <meta name="robots" content="index, follow, max-image-preview:large" />
+
+        <link rel="canonical" href="{{CANONICAL_URL}}" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="سامانه سپهر" />
+        <meta property="og:title" content="سامانه سپهر — جلسات تصویری سازمانی" />
+        <meta property="og:description" content="سامانه سپهر؛ بستر جلسات تصویری سازمانی، امن و سریع. بدون نصب، مستقیماً در مرورگر و با میزبانی کامل در شبکه داخلی سازمان." />
+        <meta property="og:image" content="/images/logo.svg" />
+        <meta property="og:url" content="{{OG_URL}}" />
+        <meta property="og:locale" content="fa_IR" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="سامانه سپهر — جلسات تصویری سازمانی" />
+        <meta name="twitter:description" content="سامانه سپهر؛ بستر جلسات تصویری سازمانی، امن و سریع. بدون نصب، مستقیماً در مرورگر و با میزبانی کامل در شبکه داخلی سازمان." />
+        <meta name="twitter:image" content="/images/logo.svg" />
+
+        <script type="application/ld+json">
+            {{JSON_LD}}
+        </script>
+
+        <link rel="stylesheet" href="../vendor/fonts/vazirmatn/vazirmatn.css" />
+        <link rel="stylesheet" href="../vendor/fontawesome/6.1.1/css/all.min.css" />
+        <link rel="stylesheet" href="../css/SepehrLight.css" />
+        <link rel="stylesheet" href="../css/RTL.css" />
+        <link rel="stylesheet" href="../css/Swal.css" />
+
+        <script>
+            document.documentElement.classList.remove('no-js');
+            document.documentElement.classList.add('js', 'sp-js');
+        </script>
+
+        <script defer src="../vendor/sweetalert2/sweetalert2.min.js"></script>
+        <script defer src="../js/Swal.js"></script>
+        <script src="../vendor/xss/xss.min.js"></script>
+        <script defer src="../js/Brand.js"></script>
+<script defer src="../js/AppSwitcher.js"></script>
+        <script defer src="../js/Common.js"></script>
+        <script defer src="../js/SepehrUI.js"></script>
+        <script async src="../js/Stats.js"></script>
+    </head>
+
+    <body class="sp-page landing-page">
+        <a class="sp-skip" href="#main">پرش به محتوای اصلی</a>
+        <div class="sp-progress" aria-hidden="true"></div>
+
+        <div class="sp-bg" aria-hidden="true">
+            <span class="sp-orb sp-orb--1"></span>
+            <span class="sp-orb sp-orb--2"></span>
+            <span class="sp-orb sp-orb--3"></span>
+        </div>
+
+        <header class="sp-header">
+            <div class="sp-shell sp-header__inner">
+                <a class="sp-brand" href="/" aria-label="سامانه سپهر — صفحه اصلی">
+                    <img src="../images/logo.svg" width="42" height="42" alt="" />
+                    <span class="sp-brand__text">
+                        <span class="sp-brand__name">سامانه سپهر</span>
+                        <span class="sp-brand__tag">جلسات تصویری سازمانی</span>
+                    </span>
+                </a>
+
+                <nav class="sp-nav" aria-label="ناوبری اصلی">
+                    <sepehr-app-switcher id="appSwitcher" active-app="sfu" hidden></sepehr-app-switcher>
+                    <a class="sp-nav__link" href="#capabilities">امکانات</a>
+                    <a class="sp-nav__link" href="#how">چطور کار می‌کند</a>
+                    <a class="sp-nav__link" href="#security">امنیت</a>
+                    <a class="sp-nav__link" href="/privacy">حریم خصوصی</a>
+                </nav>
+
+                <div class="sp-header__actions">
+                    <a id="startMeetingLink" class="sp-btn sp-btn--primary sp-btn--sm" href="#join" data-magnetic>
+                        شروع جلسه
+                    </a>
+                    <button
+                        id="spMenuBtn"
+                        class="sp-burger"
+                        type="button"
+                        aria-label="باز کردن منو"
+                        aria-controls="spMobile"
+                        aria-expanded="false"
+                    >
+                        <i class="fas fa-bars" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div id="spMobile" class="sp-mobile" role="dialog" aria-label="منوی موبایل">
+            <a href="#capabilities">امکانات <i class="fas fa-chevron-left" aria-hidden="true"></i></a>
+            <a href="#how">چطور کار می‌کند <i class="fas fa-chevron-left" aria-hidden="true"></i></a>
+            <a href="#security">امنیت <i class="fas fa-chevron-left" aria-hidden="true"></i></a>
+            <a href="/privacy">حریم خصوصی <i class="fas fa-chevron-left" aria-hidden="true"></i></a>
+            <a class="sp-btn sp-btn--primary" href="#join">شروع جلسه</a>
+        </div>
+
+        <main id="main">
+            <section class="sp-hero">
+                <div class="sp-shell sp-hero__grid">
+                    <div class="sp-hero__copy">
+                        <div class="sp-eyebrow" data-reveal>
+                            <span class="sp-eyebrow__dot" aria-hidden="true"></span>
+                            پلتفرم جلسات سازمانی
+                            <small>بدون نصب</small>
+                        </div>
+
+                        <h1 class="sp-display" data-reveal data-delay="70">
+                            جلسه‌های مهم، در فضایی
+                            <span class="sp-gradient-text">روشن و امن</span>
+                        </h1>
+
+                        <p id="appDescription" class="sp-lead" data-reveal data-delay="140">
+                            بدون نصب، بدون پیچیدگی. یک لینک بفرستید و در چند ثانیه کنار همکاران‌تان باشید؛ با
+                            تصویر شفاف، صدای روان و اشتراک صفحه.
+                        </p>
+
+                        <div class="sp-actions" data-reveal data-delay="210">
+                            <a class="sp-btn sp-btn--primary" href="#join" data-magnetic>
+                                <i class="fas fa-video" aria-hidden="true"></i>
+                                شروع یک جلسه
+                            </a>
+                            <a class="sp-btn sp-btn--ghost" href="#capabilities">
+                                آشنایی با امکانات
+                                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                            </a>
+                        </div>
+
+                        <div class="sp-trust" data-reveal data-delay="280">
+                            <span class="sp-trust__item">
+                                <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                                ارتباط رمزنگاری‌شده
+                            </span>
+                            <span class="sp-trust__item">
+                                <i class="fas fa-bolt" aria-hidden="true"></i>
+                                ورود بدون نصب
+                            </span>
+                            <span class="sp-trust__item">
+                                <i class="fas fa-server" aria-hidden="true"></i>
+                                میزبانی داخلی
+                            </span>
+                        </div>
+
+                        <div class="sp-proof" data-reveal data-delay="340">
+                            <div class="sp-avatars" aria-hidden="true">
+                                <span class="sp-avatar sp-avatar--1">س</span>
+                                <span class="sp-avatar sp-avatar--2">م</span>
+                                <span class="sp-avatar sp-avatar--3">ن</span>
+                                <span class="sp-avatar sp-avatar--4">ر</span>
+                                <span class="sp-avatar sp-avatar--more">۲+</span>
+                            </div>
+                            <span><strong>هزاران جلسه</strong> پایدار در سازمان‌ها</span>
+                        </div>
+                    </div>
+
+                    <div class="sp-hero__visual" data-reveal="scale" data-delay="160">
+                        <div class="sp-stage" data-tilt="7">
+                            <div class="sp-window" role="img" aria-label="نمایش نمونه یک جلسه تصویری در سامانه سپهر">
+                                <div class="sp-window__bar">
+                                    <span class="sp-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                                    <span class="sp-window__title">جلسه هفتگی تیم محصول</span>
+                                    <span class="sp-live">در حال برگزاری</span>
+                                </div>
+
+                                <div class="sp-tiles">
+                                    <div class="sp-tile sp-tile--main sp-tile--speaking">
+                                        <span class="sp-tile__initials">۱</span>
+                                        <span class="sp-tile__name">
+                                            کاربر ۱
+                                            <i class="fas fa-microphone" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                    <div class="sp-tile sp-tile--small sp-tile--b">
+                                        <span class="sp-tile__initials">۲</span>
+                                        <span class="sp-tile__name">
+                                            کاربر ۲
+                                            <i class="fas fa-microphone-slash" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                    <div class="sp-tile sp-tile--small sp-tile--c">
+                                        <span class="sp-tile__initials">۳</span>
+                                        <span class="sp-tile__name">
+                                            کاربر ۳
+                                            <i class="fas fa-microphone-slash" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="sp-controls" aria-hidden="true">
+                                    <span id="spDemoMic" class="sp-ctrl" role="button" tabindex="0">
+                                        <i class="fas fa-microphone"></i>
+                                    </span>
+                                    <span class="sp-ctrl"><i class="fas fa-video"></i></span>
+                                    <span class="sp-ctrl"><i class="fas fa-display"></i></span>
+                                    <span class="sp-ctrl"><i class="fas fa-comment-dots"></i></span>
+                                    <span class="sp-ctrl sp-ctrl--danger"><i class="fas fa-phone-slash"></i></span>
+                                </div>
+                            </div>
+
+                            <div class="sp-float sp-float--a">
+                                <span class="sp-float__icon"><i class="fas fa-wifi" aria-hidden="true"></i></span>
+                                <span>
+                                    <span class="sp-float__title">اتصال پایدار</span>
+                                    <span class="sp-float__meta">کیفیت تصویر بالا</span>
+                                </span>
+                            </div>
+
+                            <div class="sp-float sp-float--b">
+                                <span class="sp-float__icon"><i class="fas fa-comment" aria-hidden="true"></i></span>
+                                <span>
+                                    <span class="sp-float__title">فایل جلسه ارسال شد</span>
+                                    <span class="sp-float__meta">در گفت‌وگوی جلسه</span>
+                                </span>
+                            </div>
+
+                            <div class="sp-float sp-float--c">
+                                <span class="sp-float__icon"><i class="fas fa-users" aria-hidden="true"></i></span>
+                                <span>
+                                    <span class="sp-float__title">۱۲ نفر آنلاین</span>
+                                    <span class="sp-float__meta">صدای شفاف و روان</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="join" class="sp-join">
+                <div class="sp-shell">
+                    <div class="sp-join__card" data-reveal>
+                        <div>
+                            <h3 id="joinDescription" class="sp-join__title">جلسه تازه‌ای بسازید</h3>
+                            <p class="sp-join__hint">
+                                یک نام برای جلسه انتخاب کنید و لینک اختصاصی آن را با همکاران‌تان به اشتراک بگذارید.
+                                مهمان‌ها بدون ساخت حساب وارد می‌شوند.
+                            </p>
+                            <ul class="sp-join__points">
+                                <li>
+                                    <i class="fas fa-check" aria-hidden="true"></i>
+                                    لینک اختصاصی برای هر جلسه
+                                </li>
+                                <li>
+                                    <i class="fas fa-check" aria-hidden="true"></i>
+                                    ورود مهمان بدون حساب کاربری
+                                </li>
+                                <li>
+                                    <i class="fas fa-check" aria-hidden="true"></i>
+                                    اتاق انتظار و کنترل میزبان
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="sp-form">
+                            <label class="screen-reader-text" for="roomName">نام جلسه</label>
+                            <div class="sp-room">
+                                <div class="sp-room__row">
+                                    <div class="sp-field">
+                                        <i class="fas fa-door-open sp-field__icon" aria-hidden="true"></i>
+                                        <input
+                                            id="roomName"
+                                            class="sp-input"
+                                            type="text"
+                                            maxlength="32"
+                                            value=""
+                                            placeholder="یک نام برای جلسه بنویسید"
+                                            autocomplete="off"
+                                            dir="auto"
+                                        />
+                                    </div>
+                                    <button
+                                        id="genRoomButton"
+                                        class="gen-room-btn"
+                                        type="button"
+                                        aria-label="ساخت نام تازه برای جلسه"
+                                        title="ساخت نام تازه برای جلسه"
+                                    >
+                                        <i class="fas fa-arrows-rotate" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+
+                                <button id="joinRoomButton" class="button button-primary pulse" type="button">
+                                    ورود به جلسه
+                                </button>
+                                <button id="customizeRoomButton" class="button button-secondary button-block" type="button">
+                                    تنظیمات پیشرفته جلسه
+                                </button>
+
+                                <button
+                                    id="scheduleMeetingBtn"
+                                    class="schedule-meeting-btn"
+                                    type="button"
+                                    hidden
+                                >
+                                    <i class="fas fa-calendar-check" aria-hidden="true"></i>
+                                    زمان‌بندی جلسه
+                                </button>
+                            </div>
+
+                            <div id="lastRoomContainer" class="sp-last">
+                                <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                                <span id="joinLastLabel">جلسه اخیر شما:</span>
+                                <a id="lastRoom"></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="capabilities" class="sp-section">
+                <div class="sp-shell">
+                    <div class="sp-section__head" data-reveal>
+                        <span class="sp-kicker"><i class="fas fa-sparkles" aria-hidden="true"></i> همه‌چیز در یک جا</span>
+                        <h2 class="sp-h2">امکاناتی که جلسه را ساده می‌کند</h2>
+                        <p class="sp-sub">
+                            از گفت‌وگوی روزمره تا جلسه‌های رسمی سازمانی؛ ابزارها آماده‌اند تا فقط روی
+                            گفت‌وگو تمرکز کنید.
+                        </p>
+                    </div>
+
+                    <div class="sp-features">
+                        <article class="sp-feature" data-reveal>
+                            <span class="sp-feature__icon"><i class="fas fa-video" aria-hidden="true"></i></span>
+                            <h3>تصویر و صدای شفاف</h3>
+                            <p>کیفیت بالای تصویر و صدای روان، حتی در شبکه‌های شلوغ سازمانی.</p>
+                        </article>
+                        <article class="sp-feature" data-reveal data-delay="70">
+                            <span class="sp-feature__icon"><i class="fas fa-display" aria-hidden="true"></i></span>
+                            <h3>اشتراک صفحه و فایل</h3>
+                            <p>صفحه‌نمایش، اسلاید یا فایل را در همان جلسه با دیگران به اشتراک بگذارید.</p>
+                        </article>
+                        <article class="sp-feature" data-reveal data-delay="140">
+                            <span class="sp-feature__icon"><i class="fas fa-comments" aria-hidden="true"></i></span>
+                            <h3>گفت‌وگوی گروهی و خصوصی</h3>
+                            <p>پیام‌ها، فایل‌ها و یادداشت‌های جلسه را بدون ترک تماس رد و بدل کنید.</p>
+                        </article>
+                        <article class="sp-feature" data-reveal>
+                            <span class="sp-feature__icon"><i class="fas fa-door-open" aria-hidden="true"></i></span>
+                            <h3>اتاق انتظار هوشمند</h3>
+                            <p>میزبان پیش از ورود مهمان‌ها را تأیید می‌کند؛ نظم جلسه حفظ می‌شود.</p>
+                        </article>
+                        <article class="sp-feature" data-reveal data-delay="70">
+                            <span class="sp-feature__icon"><i class="fas fa-shield-halved" aria-hidden="true"></i></span>
+                            <h3>امنیت و حریم خصوصی</h3>
+                            <p>ارتباط رمزنگاری‌شده و میزبانی داخلی؛ داده‌ها از سازمان خارج نمی‌شوند.</p>
+                        </article>
+                        <article class="sp-feature" data-reveal data-delay="140">
+                            <span class="sp-feature__icon"><i class="fas fa-bolt" aria-hidden="true"></i></span>
+                            <h3>بدون نصب و بدون دردسر</h3>
+                            <p>کافی است مرورگر را باز کنید. نه افزونه، نه حساب کاربری، نه انتظار.</p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section id="how" class="sp-section sp-section--tint">
+                <div class="sp-shell">
+                    <div class="sp-section__head" data-reveal>
+                        <span class="sp-kicker"><i class="fas fa-route" aria-hidden="true"></i> سه گام کوتاه</span>
+                        <h2 class="sp-h2">در کمتر از یک دقیقه شروع کنید</h2>
+                        <p class="sp-sub">از انتخاب نام تا شروع گفت‌وگو، همه‌چیز روشن و بی‌دردسر است.</p>
+                    </div>
+
+                    <div class="sp-steps">
+                        <article class="sp-step" data-reveal>
+                            <span class="sp-step__num" aria-hidden="true"></span>
+                            <h3>نام جلسه را انتخاب کنید</h3>
+                            <p>یک نام کوتاه و خوانا بگذارید یا دکمه ساخت نام تازه را بزنید.</p>
+                        </article>
+                        <article class="sp-step" data-reveal data-delay="80">
+                            <span class="sp-step__num" aria-hidden="true"></span>
+                            <h3>لینک را بفرستید</h3>
+                            <p>نشانی جلسه را در پیام‌رسان سازمانی یا ایمیل با همکاران به اشتراک بگذارید.</p>
+                        </article>
+                        <article class="sp-step" data-reveal data-delay="160">
+                            <span class="sp-step__num" aria-hidden="true"></span>
+                            <h3>همان لحظه شروع کنید</h3>
+                            <p>مهمان‌ها با یک کلیک وارد می‌شوند و جلسه بدون نصب آغاز می‌شود.</p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section id="security" class="sp-section">
+                <div class="sp-shell sp-split">
+                    <div data-reveal="right">
+                        <span class="sp-kicker"><i class="fas fa-lock" aria-hidden="true"></i> امنیت در اولویت</span>
+                        <h2 class="sp-h2">جلسه‌هایتان، در فضایی امن</h2>
+                        <p class="sp-sub">
+                            اطلاعات جلسه‌ها روی زیرساخت خودتان می‌ماند. ارتباط‌ها رمزنگاری می‌شوند و دسترسی‌ها
+                            به‌صورت دقیق مدیریت می‌شوند.
+                        </p>
+
+                        <div class="sp-checks">
+                            <div class="sp-check">
+                                <span class="sp-check__icon"><i class="fas fa-check" aria-hidden="true"></i></span>
+                                <div>
+                                    <strong>میزبانی کامل در شبکه سازمان</strong>
+                                    <p>هیچ داده‌ای برای پردازش به سرویس بیرونی فرستاده نمی‌شود.</p>
+                                </div>
+                            </div>
+                            <div class="sp-check">
+                                <span class="sp-check__icon"><i class="fas fa-check" aria-hidden="true"></i></span>
+                                <div>
+                                    <strong>کنترل دسترسی میزبان</strong>
+                                    <p>رمز جلسه، اتاق انتظار و تأیید مهمان‌ها در اختیار میزبان است.</p>
+                                </div>
+                            </div>
+                            <div class="sp-check">
+                                <span class="sp-check__icon"><i class="fas fa-check" aria-hidden="true"></i></span>
+                                <div>
+                                    <strong>بدون ذخیره‌سازی ناخواسته</strong>
+                                    <p>گفت‌وگوها و پیام‌ها پس از پایان جلسه روی سرور باقی نمی‌مانند.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sp-shield" data-reveal="scale">
+                        <span class="sp-shield__ring sp-shield__ring--1" aria-hidden="true"></span>
+                        <span class="sp-shield__ring sp-shield__ring--2" aria-hidden="true"></span>
+                        <span class="sp-shield__ring sp-shield__ring--3" aria-hidden="true"></span>
+                        <span class="sp-shield__core"><i class="fas fa-shield-halved" aria-hidden="true"></i></span>
+                        <span class="sp-shield__badge sp-shield__badge--a">
+                            <i class="fas fa-lock" aria-hidden="true"></i>
+                            ارتباط امن
+                        </span>
+                        <span class="sp-shield__badge sp-shield__badge--b">
+                            <i class="fas fa-user-check" aria-hidden="true"></i>
+                            تأیید میزبان
+                        </span>
+                        <span class="sp-shield__badge sp-shield__badge--c">
+                            <i class="fas fa-server" aria-hidden="true"></i>
+                            میزبانی داخلی
+                        </span>
+                    </div>
+                </div>
+
+                <div class="sp-shell" style="margin-top: clamp(3rem, 6vw, 5rem)">
+                    <div class="sp-stats" data-reveal>
+                        <div class="sp-stat">
+                            <div class="sp-stat__value" data-count="99" data-suffix="٪">۹۹٪</div>
+                            <div class="sp-stat__label">پایداری اتصال</div>
+                        </div>
+                        <div class="sp-stat">
+                            <div class="sp-stat__value">۲۴/۷</div>
+                            <div class="sp-stat__label">در دسترس بودن</div>
+                        </div>
+                        <div class="sp-stat">
+                            <div class="sp-stat__value" data-count="0" data-suffix="">۰</div>
+                            <div class="sp-stat__label">نیاز به نصب</div>
+                        </div>
+                        <div class="sp-stat">
+                            <div class="sp-stat__value" data-count="100" data-suffix="٪">۱۰۰٪</div>
+                            <div class="sp-stat__label">میزبانی داخلی</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="sp-section" style="padding-top: 0">
+                <div class="sp-shell">
+                    <div class="sp-cta" data-reveal="scale">
+                        <h2>جلسه بعدی‌تان را روشن‌تر شروع کنید</h2>
+                        <p>
+                            یک لینک، یک کلیک و یک گفت‌وگوی خوب. همین حالا اتاق تازه‌تان را بسازید و همکاران را
+                            دعوت کنید.
+                        </p>
+                        <div class="sp-actions">
+                            <a class="sp-btn sp-btn--ghost" href="#join" data-magnetic>
+                                <i class="fas fa-video" aria-hidden="true"></i>
+                                ساخت جلسه تازه
+                            </a>
+                            <a class="sp-btn sp-btn--ghost" href="#capabilities">
+                                آشنایی با امکانات
+                                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer id="footer" class="sp-footer">
+            <div class="sp-shell">
+                <div class="sp-footer__inner">
+                    <div class="sp-footer__brand">
+                        <a class="sp-brand" href="/">
+                            <img src="../images/logo.svg" width="40" height="40" alt="" />
+                            <span class="sp-brand__text">
+                                <span class="sp-brand__name">سامانه سپهر</span>
+                                <span class="sp-brand__tag">جلسات تصویری سازمانی</span>
+                            </span>
+                        </a>
+                        <p>
+                            بستری امن، سریع و ساده برای برگزاری جلسه‌های تصویری سازمانی؛ بدون نصب و با میزبانی
+                            کامل در شبکه داخلی.
+                        </p>
+                    </div>
+
+                    <div class="sp-footer__col">
+                        <h4>دسترسی سریع</h4>
+                        <ul>
+                            <li><a href="/">خانه</a></li>
+                            <li><a href="/newroom">اتاق تازه</a></li>
+                            <li><a href="/privacy">حریم خصوصی</a></li>
+                            <li><a href="#capabilities">امکانات</a></li>
+                        </ul>
+                    </div>
+
+                    <div class="sp-footer__col">
+                        <h4>پشتیبانی</h4>
+                        <ul>
+                            <li><a href="#capabilities">راهنمای امکانات</a></li>
+                            <li><a href="#how">شروع سریع</a></li>
+                            <li><a href="#security">امنیت</a></li>
+                            <li><a href="#join">ساخت جلسه</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="sp-footer__bottom">
+                    <span>&copy; ۲۰۲۶ سامانه سپهر — همه حقوق محفوظ است.</span>
+                    <span id="footerVersion" class="sp-footer__version">{{APP_VERSION}}</span>
+                </div>
+            </div>
+        </footer>
+
+        <button class="sp-top" type="button" aria-label="بازگشت به بالای صفحه">
+            <i class="fas fa-arrow-up" aria-hidden="true"></i>
+        </button>
+    </body>
+</html>
+

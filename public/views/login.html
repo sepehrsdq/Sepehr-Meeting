@@ -1,0 +1,216 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl" class="no-js">
+    <head>
+        <title id="title">سامانه سپهر — ورود مدیران</title>
+        <link id="icon" rel="shortcut icon" href="../images/logo.svg" />
+        <link id="appleTouchIcon" rel="apple-touch-icon" href="../images/logo.svg" />
+
+        <meta charset="utf-8" />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="light" />
+        <meta
+            id="description"
+            name="description"
+            content="ورود مدیران به سامانه سپهر برای مدیریت جلسات، اتاق‌ها و تنظیمات سازمانی."
+        />
+
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="سامانه سپهر" />
+        <meta property="og:title" content="سامانه سپهر — جلسات تصویری سازمانی" />
+        <meta property="og:description" content="سامانه سپهر؛ بستر جلسات تصویری سازمانی، امن و سریع. بدون نصب، مستقیماً در مرورگر و با میزبانی کامل در شبکه داخلی سازمان." />
+        <meta property="og:image" content="/images/logo.svg" />
+        <meta property="og:url" content="/" />
+
+        <link rel="stylesheet" href="../vendor/fonts/vazirmatn/vazirmatn.css" />
+        <link rel="stylesheet" href="../vendor/fontawesome/6.1.1/css/all.min.css" />
+        <link rel="stylesheet" href="../css/SepehrLight.css" />
+        <link rel="stylesheet" href="../css/RTL.css" />
+        <link rel="stylesheet" href="../css/Swal.css" />
+
+        <script>
+            document.documentElement.classList.remove('no-js');
+            document.documentElement.classList.add('js', 'sp-js');
+        </script>
+
+        <script async src="../js/Stats.js"></script>
+        <script defer src="../js/Brand.js"></script>
+        <script defer src="../js/I18n.js"></script>
+        <script defer src="../js/Translate.js"></script>
+        <script src="../vendor/xss/xss.min.js"></script>
+        <script src="../vendor/axios/axios.min.js"></script>
+        <script defer src="../vendor/sweetalert2/sweetalert2.min.js"></script>
+        <script defer src="../js/Swal.js"></script>
+        <script defer src="../js/Utils.js"></script>
+        <script defer src="../js/Login.js"></script>
+        <script defer src="../js/SepehrUI.js"></script>
+    </head>
+
+    <body class="sp-page">
+        <div id="google_translate_element"></div>
+        <div class="sp-progress" aria-hidden="true"></div>
+
+        <div class="sp-bg" aria-hidden="true">
+            <span class="sp-orb sp-orb--1"></span>
+            <span class="sp-orb sp-orb--2"></span>
+            <span class="sp-orb sp-orb--3"></span>
+        </div>
+
+        <header class="sp-header">
+            <div class="sp-shell sp-header__inner">
+                <a class="sp-brand" href="/" aria-label="سامانه سپهر — صفحه اصلی">
+                    <img src="../images/logo.svg" width="42" height="42" alt="" />
+                    <span class="sp-brand__text">
+                        <span class="sp-brand__name">سامانه سپهر</span>
+                        <span class="sp-brand__tag">جلسات تصویری سازمانی</span>
+                    </span>
+                </a>
+                <div class="sp-header__actions">
+                    <a class="sp-btn sp-btn--ghost sp-btn--sm" href="/">خانه</a>
+                    <a class="sp-btn sp-btn--primary sp-btn--sm" href="/newroom">ساخت جلسه</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="sp-main">
+            <div class="sp-shell">
+                <div class="sp-auth">
+                    <div class="sp-auth__copy" data-reveal="right">
+                        <span class="sp-kicker">
+                            <i class="fas fa-user-shield" aria-hidden="true"></i>
+                            فضای مدیریت
+                        </span>
+                        <h1>ورود به فضای مدیریت سامانه</h1>
+                        <p>
+                            جلسه‌ها، اتاق‌ها و تنظیمات سازمانی را از یک‌جا مدیریت کنید. دسترسی این بخش فقط
+                            برای میزبانان و مدیران مجاز است.
+                        </p>
+                        <div class="sp-checks" style="margin-top: 1.6rem">
+                            <div class="sp-check">
+                                <span class="sp-check__icon"><i class="fas fa-check" aria-hidden="true"></i></span>
+                                <div>
+                                    <strong>دسترسی امن</strong>
+                                    <p>اطلاعات ورود شما به‌صورت امن منتقل می‌شود.</p>
+                                </div>
+                            </div>
+                            <div class="sp-check">
+                                <span class="sp-check__icon"><i class="fas fa-check" aria-hidden="true"></i></span>
+                                <div>
+                                    <strong>مدیریت یکپارچه</strong>
+                                    <p>همه جلسه‌ها و اتاق‌های فعال در یک نگاه.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sp-auth__card" data-reveal="left">
+                        <div class="sp-auth__head">
+                            <span class="sp-auth__badge"><i id="loginIconEl" class="fa-solid fa-lock" aria-hidden="true"></i></span>
+                            <div>
+                                <h2 id="loginHeading">ورود به سامانه</h2>
+                                <p id="loginDescription">برای دسترسی به پنل مدیریت، اطلاعات حساب خود را وارد کنید.</p>
+                            </div>
+                        </div>
+
+                        <div id="loginForm" class="login-form-section" role="form" aria-label="فرم ورود">
+                            <div class="login-input-group">
+                                <i class="fa-solid fa-user" aria-hidden="true"></i>
+                                <input
+                                    id="username"
+                                    class="form-input"
+                                    type="text"
+                                    placeholder="نام کاربری"
+                                    maxlength="254"
+                                    autocomplete="username"
+                                    required
+                                />
+                            </div>
+                            <div class="login-input-group">
+                                <i class="fa-solid fa-key" aria-hidden="true"></i>
+                                <input
+                                    id="password"
+                                    class="form-input"
+                                    type="password"
+                                    placeholder="رمز عبور"
+                                    maxlength="36"
+                                    autocomplete="current-password"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    id="togglePassword"
+                                    class="password-toggle"
+                                    title="نمایش رمز"
+                                    aria-label="نمایش رمز"
+                                    aria-pressed="false"
+                                    aria-controls="password"
+                                >
+                                    <i class="fa-solid fa-eye" aria-hidden="true"></i>
+                                </button>
+                            </div>
+
+                            <div id="loginError" class="login-error" role="alert" aria-live="polite" aria-atomic="true">
+                                <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                                <span id="loginErrorText"></span>
+                            </div>
+
+                            <button id="loginButton" class="login-btn pulse" type="button">
+                                <span id="loginBtnText"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>&nbsp; ورود</span>
+                                <span id="loginBtnLoader" class="login-btn-loader">
+                                    <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>&nbsp; در حال ورود...
+                                </span>
+                            </button>
+                        </div>
+
+                        <div id="joinRoomForm" class="login-form-section">
+                            <div class="login-icon login-icon-success">
+                                <i class="fa-solid fa-video" aria-hidden="true"></i>
+                            </div>
+                            <h2 class="join-room-title">
+                                یک جلسه را انتخاب کنید
+                                <br />
+                                و وارد شوید
+                            </h2>
+                            <div class="room-input-row">
+                                <div class="login-input-group">
+                                    <i class="fa-solid fa-door-open" aria-hidden="true"></i>
+                                    <select id="selectRoom" class="form-input sp-select"></select>
+                                </div>
+                                <button id="generateRoomButton" class="random-room-btn" title="ساخت نام تازه برای اتاق">
+                                    <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>
+                                </button>
+                                <button id="shareRoomButton" class="random-room-btn" title="اشتراک لینک اتاق">
+                                    <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <button id="joinSelectRoomButton" class="join-room-btn" style="margin-top: 0.85rem">
+                                <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>&nbsp; ورود به اتاق
+                            </button>
+                            <div id="scheduleMeetingDivider" class="login-divider" hidden>
+                                <span>یا</span>
+                            </div>
+                            <button id="scheduleMeetingBtn" class="join-room-btn schedule-meeting-login-btn" type="button" hidden>
+                                <i class="fas fa-calendar-check" aria-hidden="true"></i>&nbsp; زمان‌بندی جلسه
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer id="footer" class="sp-footer">
+            <div class="sp-shell">
+                <div class="sp-footer__bottom" style="margin-top: 0; border-top: 0; padding-top: 0">
+                    <span>&copy; ۲۰۲۶ سامانه سپهر — همه حقوق محفوظ است.</span>
+                    <span id="footerVersion" class="sp-footer__version">{{APP_VERSION}}</span>
+                </div>
+            </div>
+        </footer>
+
+        <button class="sp-top" type="button" aria-label="بازگشت به بالای صفحه">
+            <i class="fas fa-arrow-up" aria-hidden="true"></i>
+        </button>
+    </body>
+</html>

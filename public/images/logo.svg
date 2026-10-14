@@ -1,0 +1,19 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="سامانه سپهر">
+    <defs>
+        <linearGradient id="spGrad" x1="6" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#6366F1" />
+            <stop offset="0.52" stop-color="#7C3AED" />
+            <stop offset="1" stop-color="#0EA5E9" />
+        </linearGradient>
+        <linearGradient id="spShine" x1="10" y1="2" x2="34" y2="30" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#FFFFFF" stop-opacity="0.42" />
+            <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+        </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#spGrad)" />
+    <rect x="2.5" y="2.5" width="43" height="43" rx="13.5" stroke="#FFFFFF" stroke-opacity="0.22" />
+    <path d="M8 22C8 14.268 14.268 8 22 8H26C33.732 8 40 14.268 40 22V26C40 33.732 33.732 40 26 40H22C14.268 40 8 33.732 8 26V22Z" fill="url(#spShine)" />
+    <circle cx="24" cy="24" r="9.2" stroke="#FFFFFF" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="34 9" />
+    <circle cx="24" cy="24" r="3.4" fill="#FFFFFF" />
+    <circle cx="35.6" cy="12.4" r="2.1" fill="#FFFFFF" fill-opacity="0.9" />
+</svg>

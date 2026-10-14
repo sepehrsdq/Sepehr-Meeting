@@ -1,0 +1,239 @@
+'use strict';
+
+// npx mocha test-Validator.js
+
+require('should');
+
+const checkValidator = require('../app/src/Validator');
+
+describe('test-Validator', () => {
+    describe('0. Validate passwords', () => {
+        it('should accept non-empty passwords up to 36 characters', () => {
+            checkValidator.isValidPassword('password').should.be.true();
+            checkValidator.isValidPassword('a'.repeat(36)).should.be.true();
+        });
+
+        it('should reject empty, oversized, and non-string passwords', () => {
+            checkValidator.isValidPassword('').should.be.false();
+            checkValidator.isValidPassword('a'.repeat(37)).should.be.false();
+            checkValidator.isValidPassword(null).should.be.false();
+            checkValidator.isValidPassword(123).should.be.false();
+        });
+    });
+
+    describe('1. Handling invalid room name', () => {
+        it('should return false for non-string inputs', () => {
+            checkValidator.isValidRoomName(123).should.be.false();
+            checkValidator.isValidRoomName({}).should.be.false();
+            checkValidator.isValidRoomName([]).should.be.false();
+            checkValidator.isValidRoomName(null).should.be.false();
+            checkValidator.isValidRoomName(undefined).should.be.false();
+        });
+
+        it('should return false for xss injection inputs', () => {
+            checkValidator.isValidRoomName('<script>alert("xss")</script>').should.be.false();
+        });
+
+        it('should return true for valid room name', () => {
+            checkValidator.isValidRoomName('Room1').should.be.true();
+            checkValidator.isValidRoomName('ConferenceRoom').should.be.true();
+            checkValidator.isValidRoomName('Room_123').should.be.true();
+            checkValidator.isValidRoomName('30521HungryHat').should.be.true();
+            checkValidator.isValidRoomName('dbc4a9d9-6879-479a-b8fe-cedaad176b0d').should.be.true();
+        });
+
+        it('should return false for room name with path traversal', () => {
+            checkValidator.isValidRoomName('../etc/passwd').should.be.false();
+            checkValidator.isValidRoomName('..\\etc\\passwd').should.be.false();
+            checkValidator.isValidRoomName('Room/../../etc').should.be.false();
+            checkValidator.isValidRoomName('Room\\..\\..\\etc').should.be.false();
+        });
+
+        it('should return true for room names with special characters that do not imply path traversal', () => {
+            checkValidator.isValidRoomName('Room_@!#$%^&*()').should.be.true();
+            checkValidator.isValidRoomName('Room-Name').should.be.true();
+            checkValidator.isValidRoomName('Room.Name').should.be.true();
+        });
+    });
+
+    describe('2. Handling valid recording file name', () => {
+        it('should return false for non-string inputs', () => {
+            checkValidator.isValidRecFileNameFormat(123).should.be.false();
+            checkValidator.isValidRecFileNameFormat({}).should.be.false();
+            checkValidator.isValidRecFileNameFormat([]).should.be.false();
+            checkValidator.isValidRecFileNameFormat(null).should.be.false();
+            checkValidator.isValidRecFileNameFormat(undefined).should.be.false();
+        });
+
+        it('should return false for strings that do not start with "Rec_" or end with ".webm"', () => {
+            checkValidator.isValidRecFileNameFormat('Recording.webm').should.be.false();
+            checkValidator.isValidRecFileNameFormat('Rec_Recording.mp4').should.be.false();
+            checkValidator.isValidRecFileNameFormat('rec_Recording.webm').should.be.false();
+            checkValidator.isValidRecFileNameFormat('RecordingRec_.webm').should.be.false();
+        });
+
+        it('should return true for valid recording file name format', () => {
+            checkValidator.isValidRecFileNameFormat('Rec_Meeting1.webm').should.be.true();
+            checkValidator.isValidRecFileNameFormat('Rec_Session_2024.webm').should.be.true();
+            checkValidator.isValidRecFileNameFormat('Rec_Test.webm').should.be.true();
+            checkValidator.isValidRecFileNameFormat('Rec_Test.Room.webm').should.be.true();
+        });
+
+        it('should return false for recording file name format with path traversal', () => {
+            checkValidator.isValidRecFileNameFormat('../Rec_Test.webm').should.be.false();
+            checkValidator.isValidRecFileNameFormat('Rec_../Test.webm').should.be.false();
+            checkValidator.isValidRecFileNameFormat('Rec_Test/../../config.webm').should.be.false();
+            checkValidator.isValidRecFileNameFormat('Rec_Test\\..\\..\\config.webm').should.be.false();
+        });
+    });
+
+    describe('3. Handle path traversal', () => {
+        it('should return false for strings without path traversal', () => {
+            checkValidator.hasPathTraversal('Room1').should.be.false();
+            checkValidator.hasPathTraversal('Rec_Test.webm').should.be.false();
+            checkValidator.hasPathTraversal('simple/path').should.be.false();
+        });
+
+        it('should return true for strings with path traversal', () => {
+            checkValidator.hasPathTraversal('../etc/passwd').should.be.true();
+            checkValidator.hasPathTraversal('..\\etc\\passwd').should.be.true();
+            checkValidator.hasPathTraversal('Room/../../etc').should.be.true();
+            checkValidator.hasPathTraversal('Room\\..\\..\\etc').should.be.true();
+        });
+
+        it('should return false for strings with ".." that do not indicate path traversal', () => {
+            checkValidator.hasPathTraversal('Room..').should.be.false();
+            checkValidator.hasPathTraversal('Rec..webm').should.be.false();
+            checkValidator.hasPathTraversal('NoPathTraversalHere..').should.be.false();
+        });
+
+        it('should return true for complex path traversal patterns', () => {
+            checkValidator.hasPathTraversal('..//').should.be.true();
+            checkValidator.hasPathTraversal('..\\..\\').should.be.true();
+            checkValidator.hasPathTraversal('../../').should.be.true();
+            checkValidator.hasPathTraversal('.../../').should.be.true();
+            checkValidator.hasPathTraversal('....//').should.be.true();
+            checkValidator.hasPathTraversal('..//..//..//').should.be.true();
+        });
+
+        it('should return true for URL-encoded path traversal', () => {
+            checkValidator.hasPathTraversal('%2e%2e%2fRoom').should.be.true();
+            checkValidator.hasPathTraversal('%2e%2e%2f%2e%2e%2fRoom').should.be.true();
+            checkValidator.hasPathTraversal('%252e%252e%252f').should.be.true();
+        });
+
+        it('should return false for valid absolute paths', () => {
+            checkValidator.hasPathTraversal('/etc/passwd').should.be.false();
+            checkValidator.hasPathTraversal('C:\\Windows\\System32').should.be.false();
+        });
+
+        it('should return false for non-traversal relative paths', () => {
+            checkValidator.hasPathTraversal('Room/Room2').should.be.false();
+            checkValidator.hasPathTraversal('C:\\SomeDir\\OtherDir').should.be.false();
+        });
+
+        it('should return false for excessively long path inputs', () => {
+            const longPath = 'Room/'.repeat(1000);
+            checkValidator.hasPathTraversal(longPath).should.be.false();
+        });
+
+        it('should return false for paths with Windows reserved filenames', () => {
+            checkValidator.hasPathTraversal('C:\\CON\\myfile.txt').should.be.false();
+            checkValidator.hasPathTraversal('C:\\NUL\\myfile.txt').should.be.false();
+        });
+
+        it('should return false for valid Windows paths with backslashes', () => {
+            checkValidator.hasPathTraversal('C:\\Program Files\\MyApp').should.be.false();
+            checkValidator.hasPathTraversal('C:\\SomeDir\\OtherDir\\File.txt').should.be.false();
+        });
+    });
+
+    describe('4. Email list and domain validation', () => {
+        it('should parse, normalize and deduplicate valid emails', () => {
+            const emails = checkValidator.parseEmailList(' Alice@Example.com, bob@example.com, alice@example.com ');
+            emails.should.deepEqual(['alice@example.com', 'bob@example.com']);
+        });
+
+        it('should return empty list for invalid input', () => {
+            checkValidator.parseEmailList(null).should.deepEqual([]);
+            checkValidator.parseEmailList(123).should.deepEqual([]);
+            checkValidator.parseEmailList('').should.deepEqual([]);
+        });
+
+        it('should validate allowed domains when list is provided', () => {
+            const emails = ['alice@example.com', 'bob@company.org'];
+            checkValidator.hasAllowedEmailDomains(emails, ['example.com', 'company.org']).should.be.true();
+            checkValidator.hasAllowedEmailDomains(emails, ['example.com']).should.be.false();
+        });
+
+        it('should allow all domains when allowedDomains is empty', () => {
+            const emails = ['alice@example.com'];
+            checkValidator.hasAllowedEmailDomains(emails, []).should.be.true();
+        });
+    });
+
+    describe('5. SSRF host and URL validation', () => {
+        it('should block private, loopback and link-local literals', () => {
+            checkValidator.isPrivateOrLoopbackHost('127.0.0.1').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('169.254.169.254').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('172.30.0.1').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('::1').should.be.true();
+        });
+
+        it('should decode IPv4-mapped IPv6 hex literals before checking their ranges', () => {
+            checkValidator.isPrivateOrLoopbackHost('::ffff:7f00:1').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('::ffff:a9fe:a9fe').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('::ffff:a00:1').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('::ffff:c0a8:1').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('::ffff:ac10:fe01').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('0:0:0:0:0:ffff:7f00:1').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('::ffff:808:808').should.be.false();
+        });
+
+        it('should block well known internal and cloud metadata hostnames', () => {
+            checkValidator.isPrivateOrLoopbackHost('localhost').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('metadata.google.internal').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('metadata.goog').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('metadata.google.internal.').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('anything.internal').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('printer.local').should.be.true();
+            checkValidator.isPrivateOrLoopbackHost('example.com').should.be.false();
+        });
+
+        it('should reject non http(s) schemes and internal targets', async () => {
+            (await checkValidator.isPublicHttpUrl('file:///etc/passwd')).should.be.false();
+            (await checkValidator.isPublicHttpUrl('rtmp://example.com/live')).should.be.false();
+            (await checkValidator.isPublicHttpUrl('http://127.0.0.1:8899/x')).should.be.false();
+            (await checkValidator.isPublicHttpUrl('http://[::1]/x')).should.be.false();
+            (await checkValidator.isPublicHttpUrl('http://[::ffff:127.0.0.1]/')).should.be.false();
+            (await checkValidator.isPublicHttpUrl('http://[::ffff:a9fe:a9fe]/')).should.be.false();
+            (await checkValidator.isPublicHttpUrl('http://metadata.google.internal/')).should.be.false();
+            (await checkValidator.isPublicHttpUrl('not a url')).should.be.false();
+        });
+    });
+
+    describe('6. Array index validation (poll handlers)', () => {
+        const polls = [{ voters: new Map() }, { voters: new Map() }];
+
+        it('should accept in-range integer indexes', () => {
+            checkValidator.isValidArrayIndex(0, polls).should.be.true();
+            checkValidator.isValidArrayIndex(1, polls).should.be.true();
+        });
+
+        it('should reject out-of-range, non-integer and prototype-key indexes', () => {
+            checkValidator.isValidArrayIndex(2, polls).should.be.false();
+            checkValidator.isValidArrayIndex(-1, polls).should.be.false();
+            checkValidator.isValidArrayIndex(0.5, polls).should.be.false();
+            checkValidator.isValidArrayIndex(NaN, polls).should.be.false();
+            checkValidator.isValidArrayIndex('0', polls).should.be.false();
+            checkValidator.isValidArrayIndex('constructor', polls).should.be.false();
+            checkValidator.isValidArrayIndex('length', polls).should.be.false();
+            checkValidator.isValidArrayIndex('__proto__', polls).should.be.false();
+            checkValidator.isValidArrayIndex(null, polls).should.be.false();
+            checkValidator.isValidArrayIndex(undefined, polls).should.be.false();
+            checkValidator.isValidArrayIndex({}, polls).should.be.false();
+            checkValidator.isValidArrayIndex(0, []).should.be.false();
+            checkValidator.isValidArrayIndex(0, null).should.be.false();
+        });
+    });
+});

@@ -1,0 +1,29 @@
+{
+    "name": "sepehr-rtmp-streamer-server",
+    "version": "1.0.2",
+    "description": "Sepehr Meeting RTMP Streamer Server",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "start-dev": "nodemon server.js",
+        "nms-start": "docker-compose -f ../../../node-media-server/docker-compose.yml up -d",
+        "nms-stop": "docker-compose -f ../../../node-media-server/docker-compose.yml down",
+        "nms-restart": "docker-compose -f ../../../node-media-server/docker-compose.yml down && docker-compose -f ../../node-media-server/docker-compose.yml up -d",
+        "nms-logs": "docker logs -f sepehr-nms"
+    },
+    "keywords": [
+        "rtmp",
+        "server"
+    ],
+    "author": "Sepehr Seddiq",
+    "license": "SEE LICENSE IN LICENSE",
+    "dependencies": {
+        "@ffmpeg-installer/ffmpeg": "^1.1.0",
+        "body-parser": "2.2.0",
+        "cors": "2.8.5"
+    },
+    "devDependencies": {
+        "uuid": "11.1.0",
+        "nodemon": "^3.1.10"
+    }
+}

@@ -1,0 +1,205 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="light" />
+        <title>{{APP_NAME}} — راه‌اندازی کنترل از راه دور</title>
+        <link rel="shortcut icon" href="/images/logo.svg" />
+        <link rel="stylesheet" href="../vendor/fonts/vazirmatn/vazirmatn.css" />
+        <link rel="stylesheet" href="/css/RemoteControlSetup.css" />
+        <link rel="stylesheet" href="../css/RTL.css" />
+        <style>
+            :root {
+                --bg: #ffffff;
+                --surface: #ffffff;
+                --surface-2: #fbfbfe;
+                --border: rgba(20, 20, 43, 0.12);
+                --text: #14142b;
+                --muted: #5a6079;
+                --accent: #6366f1;
+                --accent-text: #ffffff;
+                --ok: #059669;
+                --warn: #b45309;
+            }
+            body {
+                font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+                background:
+                    radial-gradient(900px 520px at 100% -10%, rgba(124, 58, 237, 0.08), transparent 60%),
+                    radial-gradient(800px 520px at -10% 10%, rgba(14, 165, 233, 0.08), transparent 60%),
+                    #fff;
+                background-attachment: fixed;
+            }
+            .site-header {
+                color: var(--text);
+            }
+            .site-header img {
+                border-radius: 10px;
+            }
+            .badge {
+                background: linear-gradient(135deg, #6366f1, #7c3aed);
+                color: #fff;
+            }
+            .primary {
+                background: linear-gradient(135deg, #6366f1, #7c3aed);
+                color: #fff;
+                border: 0;
+            }
+            .button.secondary {
+                border: 1px solid var(--border);
+                color: var(--text);
+            }
+            .card {
+                border-radius: 18px;
+            }
+            .import,
+            code {
+                direction: ltr;
+                text-align: left;
+            }
+        </style>
+        <script defer src="/js/RemoteControlSetup.js"></script>
+    </head>
+    <body>
+        <header class="site-header">
+            <img src="/images/logo.svg" alt="" width="36" height="36" />
+            <span>{{APP_NAME}}</span>
+        </header>
+
+        <main>
+            <h1>اتصال راست‌دسک به {{ID_SERVER}}</h1>
+            <p class="intro">
+                راست‌دسک ابزاری رایگان برای کنترل از راه دور است که میزبان فقط پس از اجازه شما می‌تواند به
+                رایانه‌تان متصل شود.
+            </p>
+            <p class="muted">
+                هر دو طرف جلسه کنترل از راه دور باید از همین سرور استفاده کنند؛ در غیر این صورت شناسه
+                راست‌دسک پیدا نمی‌شود.
+            </p>
+
+            <section class="step">
+                <h2><span class="badge">۱</span> نصب راست‌دسک</h2>
+                <p>
+                    نرم‌افزار را از
+                    <a href="https://rustdesk.com/" target="_blank" rel="noopener noreferrer">سایت رسمی</a>
+                    یا
+                    <a href="https://github.com/rustdesk/rustdesk/releases/latest" target="_blank" rel="noopener noreferrer"
+                        >صفحه انتشار نسخه‌ها</a
+                    >
+                    دریافت کنید.
+                </p>
+                <p class="os-hint" id="os-hint" hidden></p>
+            </section>
+
+            <section class="step">
+                <h2><span class="badge">۲</span> پیکربندی را کپی کنید</h2>
+                <div class="card hero">
+                    <label class="label" for="import-config">پیکربندی</label>
+                    <textarea class="import" id="import-config" readonly rows="3">{{IMPORT_CONFIG}}</textarea>
+                    <div class="actions">
+                        <button type="button" class="primary" data-copy-target="import-config">
+                            کپی پیکربندی
+                        </button>
+                        <a class="button secondary" href="rustdesk://">قبلاً نصب کرده‌اید؟ راست‌دسک را باز کنید</a>
+                    </div>
+                </div>
+
+                <h3>سپس آن را در راست‌دسک جای‌گذاری کنید</h3>
+                <ol class="crumbs" aria-label="مسیر جای‌گذاری">
+                    <li>تنظیمات</li>
+                    <li>شبکه</li>
+                    <li>سرور شناسه و رله</li>
+                    <li>جای‌گذاری و تأیید</li>
+                </ol>
+
+                <details class="manual">
+                    <summary>یا مقادیر را دستی وارد کنید</summary>
+                    <div class="card">
+                        <div class="row">
+                            <div class="label">سرور شناسه</div>
+                            <code title="{{ID_SERVER}}">{{ID_SERVER}}</code>
+                            <button type="button" data-copy-text="{{ID_SERVER}}">کپی</button>
+                        </div>
+                        <div class="row">
+                            <div class="label">سرور رله</div>
+                            <!--IF:RELAY_SERVER-->
+                            <code title="{{RELAY_SERVER}}">{{RELAY_SERVER}}</code>
+                            <button type="button" data-copy-text="{{RELAY_SERVER}}">کپی</button>
+                            <!--ELSE-->
+                            <span class="empty">خالی بگذارید</span>
+                            <!--ENDIF-->
+                        </div>
+                        <div class="row">
+                            <div class="label">سرور واسط</div>
+                            <!--IF:API_SERVER-->
+                            <code title="{{API_SERVER}}">{{API_SERVER}}</code>
+                            <button type="button" data-copy-text="{{API_SERVER}}">کپی</button>
+                            <!--ELSE-->
+                            <span class="empty">خالی بگذارید</span>
+                            <!--ENDIF-->
+                        </div>
+                        <div class="row">
+                            <div class="label">کلید</div>
+                            <!--IF:KEY-->
+                            <code title="{{KEY}}">{{KEY_SHORT}}</code>
+                            <button type="button" data-copy-text="{{KEY}}">کپی</button>
+                            <!--ELSE-->
+                            <span class="empty">توسط مدیر تنظیم نشده است</span>
+                            <!--ENDIF-->
+                        </div>
+                    </div>
+                </details>
+            </section>
+
+            <section class="step">
+                <h2><span class="badge">۳</span> بررسی اتصال</h2>
+                <p>
+                    پنجره را با تأیید ببندید. وضعیت در پایین پنجره اصلی راست‌دسک باید
+                    <b>آماده</b> را نشان دهد.
+                </p>
+                <details>
+                    <summary>وضعیت «آماده» نیست؟</summary>
+                    <ul>
+                        <li>اتصال اینترنت را بررسی کنید و راست‌دسک را دوباره باز کنید.</li>
+                        <li>مطمئن شوید سرور شناسه و کلید کامل و بدون فاصله اضافه جای‌گذاری شده‌اند.</li>
+                        <li>از مدیر بخواهید از فعال بودن سرور مطمئن شود.</li>
+                    </ul>
+                </details>
+                <details>
+                    <summary>شناسه در زمان جلسه پیدا نمی‌شود؟</summary>
+                    <ul>
+                        <li>هر دو طرف باید از همین سرور استفاده کنند. سرور شناسه را در هر دو برنامه مقایسه کنید.</li>
+                        <li>رمز یک‌بارمصرف تغییر می‌کند. رمز فعلی نمایش‌داده‌شده در راست‌دسک را به اشتراک بگذارید.</li>
+                    </ul>
+                </details>
+            </section>
+
+            <section class="step">
+                <h2>استفاده در تماس {{APP_NAME}}</h2>
+                <ol class="flow">
+                    <li>
+                        <span class="badge small">۱</span>
+                        <p>میزبان درخواست <b>کنترل از راه دور</b> برای شما می‌فرستد.</p>
+                    </li>
+                    <li>
+                        <span class="badge small">۲</span>
+                        <p><b>شناسه</b> و <b>رمز یک‌بارمصرف</b> را از راست‌دسک وارد کنید و اجازه بدهید.</p>
+                    </li>
+                    <li>
+                        <span class="badge small">۳</span>
+                        <p>میزبان متصل می‌شود. هر زمان خواستید می‌توانید جلسه را از راست‌دسک پایان دهید.</p>
+                    </li>
+                </ol>
+                <p class="callout">شناسه و رمز خود را فقط با افراد مورد اعتماد به اشتراک بگذارید.</p>
+                <p class="callout done">همه‌چیز آماده است؟ به برگه جلسه برگردید و درخواست را تأیید کنید.</p>
+                <p class="callout mac-only" hidden>
+                    در سیستم مک، هنگام درخواست، دسترسی راست‌دسک را در بخش حریم خصوصی و امنیت (ضبط صفحه و
+                    دسترسی‌پذیری) فعال کنید.
+                </p>
+            </section>
+        </main>
+        <div id="copy-status" class="sr-only" role="status" aria-live="polite"></div>
+    </body>
+</html>

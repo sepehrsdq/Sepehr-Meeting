@@ -1,0 +1,171 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl">
+    <head>
+        <!-- Title and Icon -->
+
+        <title id="title">سامانه سپهر — پخش زنده</title>
+        <link id="icon" rel="shortcut icon" href="../images/logo.svg" />
+        <link id="appleTouchIcon" rel="apple-touch-icon" href="../images/logo.svg" />
+
+        <!-- Meta Information -->
+
+        <meta charset="utf-8" />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!-- The page URL carries a session token: never send it to third parties -->
+        <meta name="referrer" content="no-referrer" />
+        <meta name="theme-color" content="#ffffff" />
+
+        <meta id="description" name="description" content="پخش زنده جلسه در سامانه سپهر" />
+
+        <!-- StyleSheet -->
+
+        <link rel="stylesheet" href="../css/Root.css" />
+        <link rel="stylesheet" href="../css/RTL.css" />
+        <link rel="stylesheet" href="../css/RtmpStreamer.css" />
+
+        <!-- https://cdnjs.com/libraries/font-awesome -->
+
+        <link rel="stylesheet" href="../vendor/fontawesome/6.1.1/css/all.min.css" />
+
+        <!-- Axios -->
+
+        <script src="../vendor/axios/axios.min.js"></script>
+
+        <script defer src="../vendor/xss/xss.min.js"></script>
+
+        <!-- JS scripts -->
+        <script defer src="../js/Brand.js"></script>
+        <script defer src="../js/I18n.js"></script>
+        <script defer src="../js/Translate.js"></script>
+        <script defer src="../js/RtmpStreamer.js"></script>
+    </head>
+    <body>
+        <div id="popup" class="popup hidden" role="status" aria-live="polite" aria-atomic="true">
+            <span class="popup-icon" aria-hidden="true">
+                <i id="popupIcon" class="fas fa-circle-info"></i>
+            </span>
+            <span class="popup-content">
+                <strong id="popupTitle">اطلاع</strong>
+                <span id="popupMessage"></span>
+            </span>
+            <button id="closePopup" type="button" aria-label="بستن اعلان" title="بستن">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+            <span class="popup-progress" aria-hidden="true"></span>
+        </div>
+        <header class="streamer-header fadein">
+            <a class="brand" href="/" aria-label="سامانه سپهر">
+                <img src="../images/logo.svg" alt="" width="34" height="34" />
+                <span>سامانه سپهر</span>
+            </a>
+            <div class="header-status" aria-label="استودیوی پخش زنده">
+                <span class="status-dot" aria-hidden="true"></span>
+                استودیوی پخش زنده
+            </div>
+        </header>
+
+        <main class="container fadein">
+            <section class="preview-panel" aria-labelledby="streamerTitle">
+                <div class="preview-heading">
+                    <div>
+                        <p class="eyebrow">خروجی زنده</p>
+                        <h1 id="streamerTitle">پخش زنده</h1>
+                    </div>
+                    <span class="preview-status"><span aria-hidden="true"></span> آماده</span>
+                </div>
+
+                <div class="video-frame">
+                    <video id="video" width="1280" height="720" aria-label="پیش‌نمایش پخش زنده"></video>
+                    <div class="video-placeholder" aria-hidden="true">
+                        <i class="fas fa-video"></i>
+                        <strong>پیش‌نمایش شما اینجا نمایش داده می‌شود</strong>
+                        <span>برای شروع، دوربین یا صفحه را انتخاب کنید</span>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="control-panel" aria-label="کنترل‌های پخش">
+                <div class="control-intro">
+                    <span class="control-step">۰۱</span>
+                    <div>
+                        <h2>اتصال</h2>
+                        <p>مجوز بگیرید و مقصد پخش را آماده کنید.</p>
+                    </div>
+                </div>
+
+                <div class="input-group-inline field-group">
+                    <label for="apiSecret">کلید دسترسی</label>
+                    <div class="input-shell">
+                        <i class="fas fa-key" aria-hidden="true"></i>
+                        <input
+                            id="apiSecret"
+                            type="password"
+                            value=""
+                            placeholder="کلید دسترسی را وارد کنید"
+                            autocomplete="off"
+                            title="کلید دسترسی را اینجا وارد کنید"
+                        />
+                    </div>
+                </div>
+
+                <div class="input-group-inline field-group destination-group">
+                    <label for="rtmp">مقصد پخش</label>
+                    <div class="destination-row">
+                        <div class="input-shell">
+                            <i class="fas fa-tower-broadcast" aria-hidden="true"></i>
+                            <input
+                                id="rtmp"
+                                type="text"
+                                value=""
+                                placeholder="هنگام شروع پخش ساخته می‌شود"
+                                readonly
+                                title="این نشانی پخش زنده شماست و قابل ویرایش نیست."
+                            />
+                        </div>
+                        <button
+                            id="copy"
+                            class="icon-button"
+                            type="button"
+                            aria-label="کپی نشانی پخش"
+                            title="کپی نشانی پخش"
+                        >
+                            <i class="fas fa-copy" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-divider" role="presentation"></div>
+
+                <div class="control-intro">
+                    <span class="control-step">۰۲</span>
+                    <div>
+                        <h2>منبع را انتخاب کنید</h2>
+                        <p>دوربین خود را پخش کنید یا صفحه را به اشتراک بگذارید.</p>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="startCamera" class="source-button" type="button" title="شروع پخش دوربین">
+                        <span class="button-icon"><i class="fas fa-video" aria-hidden="true"></i></span>
+                        <span><strong>دوربین</strong><small>تصویر و صدا</small></span>
+                        <i class="fas fa-chevron-left button-arrow" aria-hidden="true"></i>
+                    </button>
+                    <button id="startScreen" class="source-button" type="button" title="شروع پخش صفحه">
+                        <span class="button-icon"><i class="fas fa-display" aria-hidden="true"></i></span>
+                        <span><strong>صفحه</strong><small>نمایش و صدای سیستم</small></span>
+                        <i class="fas fa-chevron-left button-arrow" aria-hidden="true"></i>
+                    </button>
+                    <button id="stop" class="stop-button" type="button" disabled title="پایان پخش">
+                        <i class="fas fa-stop" aria-hidden="true"></i>
+                        پایان پخش
+                    </button>
+                </div>
+            </aside>
+        </main>
+        <footer id="footer">
+            <p>© ۲۰۲۶ سامانه سپهر</p>
+        </footer>
+    </body>
+</html>

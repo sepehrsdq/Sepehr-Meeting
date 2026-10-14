@@ -1,0 +1,38 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#ffffff" />
+        <title>سامانه سپهر — نمایش جلسه در صفحه</title>
+
+        <script src="../js/Iframe.js" defer></script>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const domain = window.location.host;
+                const options = {
+                    room: 'test',
+                    roomPassword: 0,
+                    name: 'مهمان',
+                    audio: 0,
+                    video: 0,
+                    screen: 0,
+                    hide: 0,
+                    notify: 0,
+                    duration: 'unlimited',
+                    token: null,
+                    width: '100vw',
+                    height: '100vh',
+                    parentNode: document.querySelector('#meet'),
+                };
+                const api = new IframeApi(domain, options);
+            });
+        </script>
+        <link rel="stylesheet" href="../css/RTL.css" />
+    </head>
+    <body>
+        <div id="meet"></div>
+    </body>
+</html>

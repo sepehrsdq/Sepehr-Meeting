@@ -1,0 +1,36 @@
+﻿'use strict';
+
+async function endMeeting() {
+    try {
+        // Use dynamic import with await
+        const { default: fetch } = await import('node-fetch');
+
+        const API_KEY_SECRET = 'sepehrmeet_default_secret';
+        const MEETING_URL = 'http://localhost:3010/api/v1/meeting';
+        // const MEETING_URL = 'http://localhost:3010/api/v1/meeting';
+
+        const ROOM = 'test'; // Room name to end
+
+        const response = await fetch(`${MEETING_URL}/${ROOM}`, {
+            method: 'DELETE',
+            headers: {
+                authorization: API_KEY_SECRET,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                // redirect: 'https://example.com/meeting-ended', // Optional: URL to redirect peers to (if empty, peers go to home page)
+                // message: 'The session time has expired', // Optional: reason shown to all peers before they are disconnected
+            }),
+        });
+        const data = await response.json();
+        if (data.error) {
+            console.log('Error:', data.error);
+        } else {
+            console.log('result:', data);
+        }
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
+
+endMeeting();

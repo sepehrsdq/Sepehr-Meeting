@@ -1,0 +1,141 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl" class="no-js">
+    <head>
+        <title id="title">سامانه سپهر — در انتظار آغاز جلسه</title>
+        <link id="icon" rel="shortcut icon" href="../images/logo.svg" />
+        <link id="appleTouchIcon" rel="apple-touch-icon" href="../images/logo.svg" />
+
+        <meta charset="utf-8" />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="light" />
+        <meta
+            id="description"
+            name="description"
+            content="جلسه هنوز آغاز نشده است. به‌محض ورود میزبان، به‌طور خودکار به جلسه منتقل خواهید شد."
+        />
+
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="سامانه سپهر" />
+        <meta property="og:title" content="سامانه سپهر — جلسات تصویری سازمانی" />
+        <meta property="og:description" content="سامانه سپهر؛ بستر جلسات تصویری سازمانی، امن و سریع. بدون نصب، مستقیماً در مرورگر و با میزبانی کامل در شبکه داخلی سازمان." />
+        <meta property="og:image" content="/images/logo.svg" />
+        <meta property="og:url" content="/" />
+
+        <link rel="stylesheet" href="../vendor/fonts/vazirmatn/vazirmatn.css" />
+        <link rel="stylesheet" href="../vendor/fontawesome/6.4.2/css/all.min.css" />
+        <link rel="stylesheet" href="../css/SepehrLight.css" />
+        <link rel="stylesheet" href="../css/RTL.css" />
+
+        <script>
+            document.documentElement.classList.remove('no-js');
+            document.documentElement.classList.add('js', 'sp-js');
+        </script>
+
+        <script async src="../js/Stats.js"></script>
+        <script defer src="../js/Brand.js"></script>
+        <script defer src="../js/I18n.js"></script>
+        <script defer src="../js/Translate.js"></script>
+        <script defer src="../js/SepehrUI.js"></script>
+        <script src="../vendor/xss/xss.min.js"></script>
+        <script type="text/javascript" src="../vendor/axios/axios.min.js"></script>
+    </head>
+
+    <body class="sp-page">
+        <div id="google_translate_element"></div>
+        <div class="sp-progress" aria-hidden="true"></div>
+
+        <div class="sp-bg" aria-hidden="true">
+            <span class="sp-orb sp-orb--1"></span>
+            <span class="sp-orb sp-orb--2"></span>
+            <span class="sp-orb sp-orb--3"></span>
+        </div>
+
+        <header class="sp-header">
+            <div class="sp-shell sp-header__inner">
+                <a class="sp-brand" href="/" aria-label="سامانه سپهر — صفحه اصلی">
+                    <img src="../images/logo.svg" width="42" height="42" alt="" />
+                    <span class="sp-brand__text">
+                        <span class="sp-brand__name">سامانه سپهر</span>
+                        <span class="sp-brand__tag">جلسات تصویری سازمانی</span>
+                    </span>
+                </a>
+                <div class="sp-header__actions">
+                    <a class="sp-btn sp-btn--ghost sp-btn--sm" href="/">خانه</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="sp-main">
+            <section class="sp-center">
+                <div class="sp-shell" style="display: grid; place-items: center">
+                    <div class="sp-wait" data-reveal="scale">
+                        <div class="sp-wait__radar" aria-hidden="true">
+                            <span class="sp-wait__ring"></span>
+                            <span class="sp-wait__ring"></span>
+                            <span class="sp-wait__ring"></span>
+                            <span class="sp-wait__core"><i class="fas fa-users"></i></span>
+                        </div>
+
+                        <h1 id="waitingRoomHeading">در انتظار میزبان</h1>
+                        <p id="waitingRoomDescription" class="sp-wait__description">
+                            جلسه هنوز آغاز نشده است.
+                            <br />
+                            به‌محض ورود میزبان، به‌طور خودکار به جلسه منتقل خواهید شد.
+                        </p>
+
+                        <div id="waitingRoomName" class="sp-wait__room" style="display: none">
+                            <i class="fas fa-door-open" aria-hidden="true"></i>
+                            <span id="waitingRoomNameText"></span>
+                        </div>
+
+                        <div class="waiting-spinner" aria-hidden="true">
+                            <span class="waiting-spinner-dot"></span>
+                            <span class="waiting-spinner-dot"></span>
+                            <span class="waiting-spinner-dot"></span>
+                        </div>
+
+                        <p id="waitingStatus" class="waiting-status" aria-live="assertive">در حال بررسی وضعیت جلسه...</p>
+
+                        <p class="waiting-elapsed">
+                            <i class="fa-regular fa-clock" aria-hidden="true"></i>
+                            <span id="waitingElapsedText">لحظاتی است در انتظار هستید</span>
+                        </p>
+
+                        <hr class="waiting-divider" />
+
+                        <div id="waitingAudioPlayer" class="waiting-audio-player" style="display: none">
+                            <button id="waitingAudioBtn" class="waiting-audio-btn" title="پخش موسیقی">
+                                <i id="waitingAudioIcon" class="fa-solid fa-play"></i>
+                            </button>
+                            <div class="waiting-audio-bar">
+                                <div id="waitingAudioProgress" class="waiting-audio-progress"></div>
+                            </div>
+                            <button id="waitingAudioMute" class="waiting-audio-btn" title="بی‌صدا">
+                                <i id="waitingAudioMuteIcon" class="fa-solid fa-volume-high"></i>
+                            </button>
+                        </div>
+
+                        <p class="host-login-link">
+                            <span id="waitingRoomHostLink">میزبان جلسه هستید؟</span>
+                            <a id="loginLink" href="/login"><span id="waitingRoomLoginLink">ورود مدیران</span></a>
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer id="footer" class="sp-footer">
+            <div class="sp-shell">
+                <div class="sp-footer__bottom" style="margin-top: 0; border-top: 0; padding-top: 0">
+                    <span>&copy; ۲۰۲۶ سامانه سپهر — همه حقوق محفوظ است.</span>
+                    <span id="footerVersion" class="sp-footer__version">{{APP_VERSION}}</span>
+                </div>
+            </div>
+        </footer>
+
+        <script async src="../js/WhoAreYou.js"></script>
+    </body>
+</html>

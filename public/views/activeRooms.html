@@ -1,0 +1,133 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl">
+    <head>
+        <title id="title">سامانه سپهر — اتاق‌های فعال</title>
+        <link id="icon" rel="shortcut icon" href="../images/logo.svg" />
+        <link id="appleTouchIcon" rel="apple-touch-icon" href="../images/logo.svg" />
+
+        <meta charset="utf-8" />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="light" />
+
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="سامانه سپهر" />
+        <meta property="og:title" content="سامانه سپهر — جلسات تصویری سازمانی" />
+        <meta property="og:description" content="سامانه سپهر؛ بستر جلسات تصویری سازمانی، امن و سریع. بدون نصب، مستقیماً در مرورگر و با میزبانی کامل در شبکه داخلی سازمان." />
+        <meta property="og:image" content="/images/logo.svg" />
+        <meta property="og:url" content="/" />
+
+        <script src="../vendor/axios/axios.min.js"></script>
+        <link rel="stylesheet" href="../vendor/fonts/vazirmatn/vazirmatn.css" />
+        <link rel="stylesheet" href="../vendor/fontawesome/6.4.2/css/all.min.css" />
+        <link rel="stylesheet" type="text/css" href="../css/ActiveRooms.css" />
+        <link rel="stylesheet" href="../css/RTL.css" />
+
+        <style>
+            :root {
+                --primary-bg: #ffffff;
+                --container-bg: #ffffff;
+                --card-bg: #ffffff;
+                --card-bg-hover: #fbfbfe;
+                --accent: #6366f1;
+                --accent-hover: #4338ca;
+                --accent-glow: rgba(99, 102, 241, 0.12);
+                --text: #14142b;
+                --text-muted: #5a6079;
+                --border: rgba(20, 20, 43, 0.1);
+                --success: #059669;
+                --gold: #d97706;
+                --card-shadow: 0 2px 4px rgba(20, 20, 43, 0.04), 0 18px 44px -24px rgba(20, 20, 43, 0.22);
+            }
+            body {
+                font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+                background:
+                    radial-gradient(900px 520px at 100% -10%, rgba(124, 58, 237, 0.08), transparent 60%),
+                    radial-gradient(800px 520px at -10% 10%, rgba(14, 165, 233, 0.08), transparent 60%),
+                    #fff;
+            }
+            .header h1 {
+                color: var(--text);
+            }
+            .container {
+                max-width: 1180px;
+            }
+            .stats-bar {
+                background: #fbfbfe;
+                border: 1px solid var(--border);
+                border-radius: 18px;
+            }
+            .stat-item {
+                border-color: var(--border);
+            }
+            .stat-value.accent {
+                background: linear-gradient(120deg, #4338ca, #7c3aed, #0284c7);
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .stat-value.gold {
+                color: #d97706;
+            }
+            .search-bar {
+                background: #fff;
+                border: 1.5px solid var(--border);
+                border-radius: 14px;
+            }
+            .search-bar:focus-within {
+                border-color: #6366f1;
+                box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+            }
+            .search-input {
+                color: var(--text);
+            }
+            .room-card {
+                border-radius: 18px;
+                border: 1px solid var(--border);
+            }
+            .join-btn {
+                background: linear-gradient(135deg, #6366f1, #7c3aed);
+                color: #fff;
+            }
+            .refresh-btn {
+                border: 1px solid var(--border);
+                background: #fff;
+                color: var(--text-muted);
+                border-radius: 12px;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="header-left">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                    <h1>اتاق‌های فعال</h1>
+                    <span class="room-count-badge" id="roomCountBadge">۰ اتاق</span>
+                </div>
+                <button id="refresh-btn" class="refresh-btn" title="تازه‌سازی">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+            </div>
+            <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input class="search-input" id="searchInput" type="text" placeholder="جست‌وجوی اتاق..." />
+            </div>
+            <div class="stats-bar" id="statsBar">
+                <div class="stat-item">
+                    <div class="stat-value accent" id="statRooms">۰</div>
+                    <div class="stat-label">اتاق‌ها</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value gold" id="statPeers">۰</div>
+                    <div class="stat-label">مجموع افراد</div>
+                </div>
+            </div>
+            <div class="rooms" id="rooms"></div>
+        </div>
+        <script defer src="../js/ActiveRooms.js"></script>
+    </body>
+</html>

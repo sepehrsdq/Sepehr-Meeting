@@ -1,0 +1,27 @@
+{
+    "name": "cloud",
+    "version": "1.0.2",
+    "description": "Cloud server to handle Sepehr Meeting recording uploads",
+    "main": "server.js",
+    "scripts": {
+        "start": "node --env-file-if-exists=.env server.js",
+        "start-dev": "nodemon --exec \"node --env-file-if-exists=.env\" server.js"
+    },
+    "keywords": [
+        "cloud",
+        "recording"
+    ],
+    "author": "Sepehr Seddiq",
+    "license": "SEE LICENSE IN LICENSE",
+    "dependencies": {
+        "cors": "2.8.6",
+        "express": "^5.3.0",
+        "express-rate-limit": "^8.7.1",
+        "helmet": "^8.3.0",
+        "jsonwebtoken": "^9.0.3",
+        "sanitize-filename": "^1.6.4"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.14"
+    }
+}

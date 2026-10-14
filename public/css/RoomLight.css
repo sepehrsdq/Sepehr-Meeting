@@ -1,0 +1,779 @@
+/*
+ * سامانه سپهر — Room pre-join light layer
+ * Only styles the loading screen and the pre-join dialog. The in-call stage
+ * stays dark on purpose so video and shared content keep maximum contrast.
+ */
+
+/* ---------------------------------------------------------- Loading screen */
+#loadingDiv {
+    background: #ffffff;
+    color: var(--sp-ink, #14142b);
+    border: 1px solid rgba(20, 20, 43, 0.08);
+    border-radius: 28px;
+    padding: 34px 38px;
+    box-shadow:
+        0 4px 10px rgba(20, 20, 43, 0.04),
+        0 40px 90px -32px rgba(67, 56, 202, 0.32);
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+}
+
+#loadingDiv h1 {
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    color: var(--sp-ink, #14142b);
+    background: linear-gradient(120deg, #4338ca, #7c3aed 48%, #0284c7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+#loadingDiv pre,
+#loadingDiv .loading-message {
+    color: #5a6079;
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    line-height: 2;
+}
+
+#loadingDiv .spinner-ring {
+    border-color: rgba(99, 102, 241, 0.15);
+    border-top-color: #6366f1;
+}
+
+/* ------------------------------------------------------- Pre-join dialog */
+.swal2-popup.init-modal-size {
+    background: #ffffff !important;
+    color: #14142b !important;
+    border-radius: 28px !important;
+    border: 1px solid rgba(20, 20, 43, 0.08);
+    box-shadow:
+        0 4px 10px rgba(20, 20, 43, 0.04),
+        0 40px 100px -34px rgba(67, 56, 202, 0.38);
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    padding: 1.6rem;
+}
+
+.swal2-popup.init-modal-size .swal2-title {
+    color: #14142b !important;
+    font-weight: 800;
+    font-size: 1.25rem;
+    letter-spacing: -0.01em;
+}
+
+.swal2-container.swal2-backdrop-show:has(.init-modal-size) {
+    background: rgba(246, 245, 255, 0.94) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.swal2-popup.init-modal-size .swal2-input,
+.swal2-popup.init-modal-size #usernameInput {
+    background: #fbfbfe !important;
+    color: #14142b !important;
+    border: 1.5px solid rgba(20, 20, 43, 0.14) !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    text-align: right;
+}
+
+.swal2-popup.init-modal-size .swal2-input::placeholder,
+.swal2-popup.init-modal-size #usernameInput::placeholder {
+    color: #8a90a8 !important;
+}
+
+.swal2-popup.init-modal-size .swal2-input:focus,
+.swal2-popup.init-modal-size #usernameInput:focus {
+    background: #ffffff !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12) !important;
+}
+
+.swal2-popup.init-modal-size .swal2-input-label {
+    color: #5a6079 !important;
+    font-weight: 600;
+}
+
+.swal2-popup.init-modal-size .swal2-html-container {
+    color: #14142b !important;
+}
+
+.swal2-popup.init-modal-size .swal2-html-container {
+    margin: 0.6rem 0 0;
+}
+
+.swal2-popup.init-modal-size .swal2-confirm {
+    background: linear-gradient(135deg, #6366f1, #7c3aed 55%, #0ea5e9) !important;
+    color: #fff !important;
+    border-radius: 14px !important;
+    font-weight: 800;
+    min-height: 48px;
+    padding: 0.6rem 1.6rem;
+    box-shadow: 0 14px 30px -14px rgba(99, 102, 241, 0.8);
+    transition:
+        transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.2s ease;
+}
+
+.swal2-popup.init-modal-size .swal2-confirm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 38px -16px rgba(99, 102, 241, 0.9);
+}
+
+.swal2-popup.init-modal-size .swal2-cancel {
+    background: #ffffff !important;
+    border: 1.5px solid rgba(20, 20, 43, 0.14) !important;
+    color: #2b2c4a !important;
+    border-radius: 14px !important;
+    font-weight: 600;
+    min-height: 48px;
+}
+
+.init-user {
+    color: #14142b;
+    text-align: right;
+}
+
+.init-user .form-select,
+.init-user select {
+    background-color: #fbfbfe !important;
+    border: 1.5px solid rgba(20, 20, 43, 0.14) !important;
+    color: #14142b !important;
+    border-radius: 12px !important;
+}
+
+.init-user .form-select:focus,
+.init-user select:focus {
+    background-color: #fff !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12) !important;
+}
+
+.init-user select option {
+    background: #ffffff;
+    color: #14142b;
+}
+
+.init-user button {
+    background: #f4f4fb;
+    border: 1px solid rgba(20, 20, 43, 0.09);
+    color: #3c3c5c;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.04);
+}
+
+.init-user button:hover {
+    background: #ffffff !important;
+    color: #4338ca !important;
+    border-color: rgba(99, 102, 241, 0.35) !important;
+    box-shadow: 0 8px 20px -12px rgba(20, 20, 43, 0.28);
+}
+
+.init-user button:is(.fa-microphone-slash, .fa-video-slash, .fa-eye-slash) {
+    background: rgba(225, 29, 72, 0.08) !important;
+    border-color: rgba(225, 29, 72, 0.24) !important;
+    color: #be123c !important;
+}
+
+.init-user #initExitButton:hover {
+    background: rgba(225, 29, 72, 0.1) !important;
+    border-color: rgba(225, 29, 72, 0.32) !important;
+    color: #be123c !important;
+}
+
+.init-user .init-video-container {
+    background: #f1f1fb;
+    border-radius: 18px;
+    box-shadow: inset 0 0 0 1px rgba(20, 20, 43, 0.05);
+}
+
+.init-user #initVideo {
+    border-radius: 18px;
+}
+
+.init-user .init-video-off {
+    color: #5a6079;
+}
+
+.init-user .init-video-off-avatar {
+    background: #ecebfb;
+    color: #6366f1;
+    border: 1px solid rgba(99, 102, 241, 0.16);
+}
+
+.init-user .init-video-off-text {
+    color: #2b2c4a;
+}
+
+.init-user .init-video-off-hint {
+    color: #8a90a8;
+}
+
+.init-user .init-media-notice {
+    background: rgba(217, 119, 6, 0.08);
+    border: 1px solid rgba(217, 119, 6, 0.2);
+    color: #92400e;
+    border-radius: 12px;
+}
+
+.init-user .init-media-notice button {
+    background: #ffffff !important;
+    border: 1px solid rgba(217, 119, 6, 0.3) !important;
+    color: #92400e !important;
+    border-radius: 9px !important;
+}
+
+.init-user .mic-guidance {
+    background: #f6f5ff;
+    border: 1px solid rgba(99, 102, 241, 0.14);
+    color: #5a6079;
+    border-radius: 12px;
+}
+
+.init-user input,
+.init-user .form-control {
+    background: #fbfbfe !important;
+    border: 1.5px solid rgba(20, 20, 43, 0.14) !important;
+    color: #14142b !important;
+    border-radius: 12px !important;
+}
+
+.init-user input:focus,
+.init-user .form-control:focus {
+    background: #fff !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12) !important;
+}
+
+.init-user label {
+    color: #5a6079;
+}
+
+/* SweetAlert used by the pre-join flow inherits the light surface */
+.swal2-container .swal2-popup {
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+}
+
+.swal2-popup.init-modal-size .swal2-validation-message {
+    background: rgba(225, 29, 72, 0.07);
+    color: #be123c;
+    border-radius: 10px;
+}
+
+/* Keep the logo spinner crisp on white */
+#loadingDiv .spinner-logo,
+.swal2-popup.init-modal-size .spinner-logo {
+    border-radius: 12px;
+}
+
+/* --------------------------------------------------------- Light dialogs */
+/* Room dialogs (share room, leave, device errors, …) share the porcelain
+   surface of the public pages so the product reads as one system. */
+:root {
+    --swal-confirm-bg: #6366f1;
+    --swal-confirm-ink: #ffffff;
+    --swal-neutral-bg: #f4f4fb;
+    --swal-neutral-ink: #2b2c4a;
+    --swal-focus-ink: #6366f1;
+}
+
+.swal2-container.swal2-backdrop-show {
+    background: rgba(246, 245, 255, 0.9) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.swal2-container .swal2-popup:not(.breakout-swal):not(.lobby-join-popup) {
+    background: #ffffff !important;
+    color: #14142b !important;
+    border: 1px solid rgba(20, 20, 43, 0.08);
+    border-radius: 24px !important;
+    box-shadow:
+        0 4px 10px rgba(20, 20, 43, 0.04),
+        0 40px 90px -34px rgba(67, 56, 202, 0.34);
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    /* Re-point the room text tokens so popup content written against them
+       (e.g. .qr-room-copy--body) stays readable on the light surface. */
+    --fg-1: #14142b;
+    --fg-2: #3c3c5c;
+    --fg-3: #5a6079;
+    --fg-muted: #8a90a8;
+    --dd-color: #14142b;
+    --swal-neutral-ink: #2b2c4a;
+    --swal-confirm-ink: #ffffff;
+    --swal-focus-ink: #6366f1;
+}
+
+.swal2-container .swal2-title {
+    color: #14142b !important;
+    font-weight: 800;
+}
+
+.swal2-container .swal2-html-container,
+.swal2-container .swal2-content,
+.swal2-container .swal2-footer {
+    color: #3c3c5c !important;
+}
+
+.swal2-container .swal2-close {
+    color: #8a90a8 !important;
+}
+
+.swal2-container .swal2-close:hover,
+.swal2-container .swal2-close:focus {
+    color: #14142b !important;
+}
+
+.swal2-container .swal2-input,
+.swal2-container .swal2-textarea,
+.swal2-container .swal2-select,
+.swal2-container .swal2-file {
+    background: #fbfbfe !important;
+    color: #14142b !important;
+    border: 1.5px solid rgba(20, 20, 43, 0.12) !important;
+    box-shadow: none !important;
+}
+
+.swal2-container .swal2-input:focus,
+.swal2-container .swal2-textarea:focus {
+    background: #ffffff !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12) !important;
+}
+
+.swal2-container .swal2-validation-message {
+    background: rgba(225, 29, 72, 0.07) !important;
+    color: #be123c !important;
+    border-radius: 10px;
+}
+
+.swal2-container .swal2-styled.swal2-confirm {
+    background-image: linear-gradient(135deg, #6366f1, #7c3aed 55%, #0ea5e9) !important;
+    box-shadow: 0 10px 20px -12px rgba(99, 102, 241, 0.6);
+}
+
+.swal2-container .swal2-styled.swal2-cancel,
+.swal2-container .swal2-styled.swal2-deny {
+    background-color: #f4f4fb !important;
+    color: #2b2c4a !important;
+    border: 1.5px solid rgba(20, 20, 43, 0.12) !important;
+}
+
+.swal2-container .swal2-styled.swal-destructive {
+    background: #e11d48 !important;
+}
+
+.swal2-container .swal2-icon.swal2-info,
+.swal2-container .swal2-icon.swal2-question {
+    border-color: #6366f1 !important;
+    color: #6366f1 !important;
+}
+
+.swal2-container .swal2-icon.swal2-success {
+    border-color: #059669 !important;
+    color: #059669 !important;
+}
+
+.swal2-container .swal2-icon.swal2-warning {
+    border-color: #d97706 !important;
+    color: #d97706 !important;
+}
+
+.swal2-container .swal2-icon.swal2-error {
+    border-color: #e11d48 !important;
+    color: #e11d48 !important;
+}
+
+/* Toasts keep the same surface but stay compact */
+.swal2-container .swal2-popup.swal2-toast {
+    border-radius: 16px !important;
+}
+
+.swal2-container .swal2-popup.swal2-toast .swal2-close {
+    color: #8a90a8 !important;
+}
+
+.swal2-container .swal2-popup.swal2-toast .swal2-title {
+    color: #14142b !important;
+}
+
+.swal2-container .swal2-popup.swal2-toast .swal2-html-container {
+    color: #5a6079 !important;
+}
+
+/* ==========================================================================
+   Presentation stage (screen share / pinned media)
+   A framed, softly lit stage so shared content reads as the hero of the room.
+   ========================================================================== */
+
+#videoPinMediaContainer {
+    padding: 14px;
+    background:
+        radial-gradient(120% 90% at 50% 0%, rgba(99, 102, 241, 0.08), transparent 62%),
+        #0b0c12;
+}
+
+.pinned-video-container {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background:
+        radial-gradient(120% 90% at 50% 0%, rgba(99, 102, 241, 0.16), transparent 62%),
+        radial-gradient(120% 90% at 50% 100%, rgba(14, 165, 233, 0.1), transparent 62%),
+        #0a0b11;
+    box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.45),
+        0 40px 90px -48px rgba(0, 0, 0, 0.95);
+}
+
+/* Only screen shares get the presentation badge (pinned cameras do not).
+   mediaType.screen === 'screenType' in RoomClient.js, so that is the value
+   the grid writes into data-media-type. */
+.pinned-video-container[data-media-type='screenType'] {
+    animation: spStageIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes spStageIn {
+    from {
+        opacity: 0;
+        transform: scale(0.992);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.pinned-video-container[data-media-type='screenType']::after {
+    content: 'در حال اشتراک صفحه';
+    position: absolute;
+    top: 14px;
+    inset-inline-start: 14px;
+    z-index: 4;
+    display: block;
+    padding-block: 7px;
+    padding-inline-start: 30px;
+    padding-inline-end: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(10, 12, 18, 0.66);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #eef0f8;
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* Live dot sitting inside the badge. */
+.pinned-video-container[data-media-type='screenType']::before {
+    content: '';
+    position: absolute;
+    top: 24px;
+    inset-inline-start: 24px;
+    z-index: 5;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.16);
+    pointer-events: none;
+    animation: spStageLive 2s ease-in-out infinite;
+}
+
+@keyframes spStageLive {
+    50% {
+        opacity: 0.4;
+        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.08);
+    }
+}
+
+/* Camera rail next to the shared screen: quieter surface, softer tiles. */
+body:has(#videoPinMediaContainer .pinned-video-container) #videoMediaContainer {
+    background: #0b0c12;
+    border-inline-end: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+body:has(#videoPinMediaContainer .pinned-video-container) #videoMediaContainer > .Camera {
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 18px;
+    box-shadow: 0 20px 46px -30px rgba(0, 0, 0, 0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pinned-video-container[data-media-type='screenType'] {
+        animation: none;
+    }
+
+    .pinned-video-container[data-media-type='screenType']::before {
+        animation: none;
+    }
+}
+
+@media (max-width: 700px) {
+    #videoPinMediaContainer {
+        padding: 8px;
+    }
+
+    .pinned-video-container {
+        border-radius: 14px;
+    }
+
+    .pinned-video-container[data-media-type='screenType']::after {
+        top: 10px;
+        inset-inline-start: 10px;
+        padding-block: 6px;
+        padding-inline-start: 26px;
+        padding-inline-end: 11px;
+        font-size: 11px;
+    }
+
+    .pinned-video-container[data-media-type='screenType']::before {
+        top: 18px;
+        inset-inline-start: 19px;
+        width: 6px;
+        height: 6px;
+    }
+}
+
+/* ==========================================================================
+   Share-screen prompt
+   A small, calm confirmation card so the prompt feels part of the product.
+   ========================================================================== */
+
+.sp-share-prompt {
+    width: min(92vw, 430px) !important;
+    border-radius: 22px !important;
+    text-align: start !important;
+}
+
+.sp-share-prompt .swal2-title {
+    padding: 26px 26px 0 !important;
+    margin: 0 !important;
+    font-size: 19px !important;
+    font-weight: 700 !important;
+    text-align: start !important;
+}
+
+.sp-share-prompt .swal2-html-container {
+    padding: 10px 26px 4px !important;
+    margin: 0 !important;
+    text-align: start !important;
+}
+
+.sp-share-prompt .swal2-actions {
+    padding: 0 26px 24px !important;
+    margin: 16px 0 0 !important;
+    gap: 10px !important;
+    justify-content: stretch !important;
+    flex-direction: row-reverse !important;
+}
+
+.sp-share-prompt .swal2-actions button {
+    flex: 1 1 0 !important;
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+}
+
+@media (max-width: 420px) {
+    .sp-share-prompt .swal2-title {
+        padding: 22px 18px 0 !important;
+        font-size: 17px !important;
+    }
+
+    .sp-share-prompt .swal2-html-container {
+        padding: 10px 18px 0 !important;
+    }
+
+    .sp-share-prompt .swal2-actions {
+        padding: 0 18px 20px !important;
+        gap: 8px !important;
+    }
+
+    .sp-share-prompt .swal2-actions button {
+        padding-inline: 8px !important;
+        font-size: 13px !important;
+    }
+}
+
+.sp-share-prompt__lead {
+    margin: 0 0 14px;
+    color: #5a6079;
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 14px;
+    line-height: 1.85;
+}
+
+.sp-share-prompt__tips {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sp-share-prompt__tips li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 13px;
+    border: 1px solid #e6e8f2;
+    border-radius: 13px;
+    background: #f7f8fd;
+    color: #303650;
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.sp-share-prompt__tips li i {
+    flex: none;
+    margin-top: 3px;
+    color: #6366f1;
+    font-size: 13px;
+}
+
+/* ==========================================================================
+   File picker modal (light)
+   The picker markup is styled dark in Room.css; inside the light dialog it
+   needs a light surface so the dropzone text and dashed border stay readable.
+   ========================================================================== */
+
+.swal2-container .sepehr-file-dropzone {
+    border: 1.5px dashed #c9cde3;
+    background: #f7f8fd;
+    color: #14142b;
+}
+
+.swal2-container .sepehr-file-dropzone:hover,
+.swal2-container .sepehr-file-dropzone.is-dragover {
+    border-color: #6366f1;
+    background: #eef0fe;
+    box-shadow: 0 14px 30px -22px rgba(99, 102, 241, 0.75);
+}
+
+.swal2-container .sepehr-file-dropzone.has-file {
+    border-style: solid;
+    border-color: #a5b4fc;
+    background: #f0f2ff;
+}
+
+.swal2-container .sepehr-file-dropzone-icon {
+    background: #e9e9fd;
+    color: #5b5bd6;
+}
+
+.swal2-container .sepehr-file-dropzone-subtitle,
+.swal2-container .sepehr-file-dropzone-helper {
+    color: #6b7189;
+}
+
+.swal2-container .sepehr-file-dropzone-cta {
+    background: #eceafe;
+    color: #4f46e5;
+}
+
+.swal2-container .sepehr-file-preview {
+    border-color: #e6e8f2;
+    background: #f7f8fd;
+}
+
+.swal2-container .sepehr-file-preview-icon {
+    background: #eceafe;
+    color: #4f46e5;
+}
+
+.swal2-container .sepehr-file-preview-meta strong {
+    color: #14142b;
+}
+
+.swal2-container .sepehr-file-preview-meta span {
+    color: #6b7189;
+}
+
+.swal2-container .sepehr-file-preview-remove {
+    background: #eef0f6;
+    color: #2b2c4a;
+}
+
+.swal2-container .sepehr-file-preview-remove:hover {
+    background: #e2e5f0;
+}
+
+/* Autofill on light inputs: keep the field white instead of the dark inset. */
+.swal2-container .swal2-input:-webkit-autofill,
+.swal2-container .swal2-input:-webkit-autofill:hover,
+.swal2-container .swal2-input:-webkit-autofill:focus,
+.swal2-container .swal2-input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+    -webkit-text-fill-color: #14142b !important;
+    caret-color: #14142b;
+}
+
+/* ==== SEPEHR IN-CALL LIGHT STAGE ==== */
+/*
+ * The in-call stage is re-themed by re-declaring the semantic tokens only.
+ * Room.css and the panel stylesheets are token driven, so every surface,
+ * border and foreground flips together instead of drifting out of sync.
+ * Anything that sits under or above video keeps its own dark tokens
+ * (--stage-media-bg / --stage-chip-bg) so names, badges and chips stay legible.
+ */
+:root {
+    --ink: #14142b;
+    --on-accent: #ffffff;
+
+    /* Canvas */
+    --body-bg:
+        radial-gradient(1200px 620px at 85% -10%, #eef2ff 0%, transparent 60%),
+        radial-gradient(900px 520px at 0% 0%, #e6f4ff 0%, transparent 55%),
+        linear-gradient(160deg, #f8f9fe 0%, #eef1fa 60%, #e8ecf8 100%);
+    --settings-bg: #ffffff;
+    --msger-bg: #ffffff;
+    --wb-bg: #ffffff;
+    --trx-bg: #ffffff;
+    --select-bg: #f3f5fc;
+    --tab-btn-active: #ffffff;
+    --btns-bg-color: rgba(255, 255, 255, 0.92);
+    --box-shadow: 0 12px 34px rgba(20, 20, 43, 0.12);
+    --dd-color: #14142b;
+    --room-accent: #4f46e5;
+    --left-msg-bg: #eef1f8;
+    --right-msg-bg: #dbe7ff;
+    --private-msg-bg: #ffe4e9;
+    --select-focus-color: rgba(79, 70, 229, 0.45);
+
+    /* Foreground */
+    --fg-1: #14142b;
+    --fg-2: #2b2c4a;
+    --fg-3: #4b4c6b;
+    --fg-muted: #6d6e8c;
+    --fg-disabled: rgba(20, 20, 43, 0.32);
+
+    /* Surfaces + borders */
+    --surface-1: rgba(20, 20, 43, 0.04);
+    --surface-2: rgba(20, 20, 43, 0.07);
+    --surface-3: rgba(20, 20, 43, 0.11);
+    --border-subtle: rgba(20, 20, 43, 0.08);
+    --border-strong: rgba(20, 20, 43, 0.16);
+    --border: 0.5px solid rgba(20, 20, 43, 0.1);
+    --room-shadow: 0 18px 44px rgba(20, 20, 43, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Video frames keep a dark bed so picture and overlays never wash out. */
+#videoMediaContainer video,
+#videoPinMediaContainer video {
+    background: var(--stage-media-bg);
+}
+
+/* Panel chrome that used its own dark constant instead of a token. */
+.chat-container {
+    --chat-toolbar-surface: rgba(255, 255, 255, 0.9);
+}

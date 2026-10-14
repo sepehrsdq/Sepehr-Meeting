@@ -1,0 +1,30 @@
+﻿# pip3 install requests
+import requests
+import json
+
+API_KEY_SECRET = "sepehrmeet_default_secret"
+MEETING_URL = "http://localhost:3010/api/v1/meeting"
+# MEETING_URL = "http://localhost:3010/api/v1/meeting"
+
+ROOM = "test"
+
+headers = {
+    "authorization": API_KEY_SECRET,
+    "Content-Type": "application/json",
+}
+
+# Optional: redirect URL (leave empty for home page) and reason message shown to all participants
+data = {
+    # "redirect": "https://example.com/meeting-ended",
+    # "message": "The session time has expired",
+}
+
+response = requests.delete(
+    f"{MEETING_URL}/{ROOM}",
+    headers=headers,
+    json=data
+)
+
+print("Status code:", response.status_code)
+data = json.loads(response.text)
+print("result:", data)

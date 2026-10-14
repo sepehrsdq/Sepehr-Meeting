@@ -1,0 +1,193 @@
+'use strict';
+
+const jwt = require('jsonwebtoken');
+const CryptoJS = require('crypto-js');
+
+const config = require('./config');
+const { getJwtKeys } = require('./JwtSecret');
+const { v4: uuidV4 } = require('uuid');
+
+const JWT_EXP = config.security?.jwt?.exp || '1h';
+const EJECT_MESSAGE_MAX_LENGTH = 200;
+
+module.exports = class ServerApi {
+    // Plain-text reason shown to participants when a meeting is ended (clients render it escaped)
+    static normalizeEjectMessage(message) {
+        if (typeof message !== 'string') return '';
+        return message
+            .replace(/[\u0000-\u001F\u007F]+/g, ' ')
+            .trim()
+            .slice(0, EJECT_MESSAGE_MAX_LENGTH)
+            .trim();
+    }
+
+    constructor(host = null, authorization = null) {
+        this._host = host;
+        this._authorization = authorization;
+        this._api_key_secret = config.api.keySecret;
+    }
+
+    isAuthorized() {
+        if (!this._api_key_secret || typeof this._api_key_secret !== 'string') return false;
+        if (!this._authorization || typeof this._authorization !== 'string') return false;
+        if (this._authorization !== this._api_key_secret) return false;
+        return true;
+    }
+
+    getStats(roomList, timestamp = new Date().toISOString()) {
+        const totalUsers = Array.from(roomList.values()).reduce((total, room) => total + room.peers.size, 0);
+        const totalRooms = roomList.size;
+        return { timestamp, totalRooms, totalUsers };
+    }
+
+    getActiveRooms(roomList) {
+        return Array.from(roomList.entries()).map(([roomId, room]) => ({
+            id: roomId,
+            peers: room.peers.size,
+            join: 'https://' + this._host + '/' + roomId,
+        }));
+    }
+
+    getMeetings(roomList) {
+        const meetings = Array.from(roomList.entries()).map(([id, room]) => {
+            const peers = Array.from(room.peers.values()).map(
+                ({
+                    peer_info: {
+                        peer_name,
+                        peer_presenter,
+                        peer_video,
+                        peer_audio,
+                        peer_screen,
+                        peer_hand,
+                        os_name,
+                        os_version,
+                        browser_name,
+                        browser_version,
+                    },
+                }) => ({
+                    name: peer_name,
+                    presenter: peer_presenter,
+                    video: peer_video,
+                    audio: peer_audio,
+                    screen: peer_screen,
+                    hand: peer_hand,
+                    os: os_name ? `${os_name} ${os_version}` : '',
+                    browser: browser_name ? `${browser_name} ${browser_version}` : '',
+                })
+            );
+            return {
+                roomId: id,
+                peers: peers,
+            };
+        });
+        return meetings;
+    }
+
+    endMeeting(roomList, room, redirect = '', message = '') {
+        if (!roomList.has(room)) {
+            return { success: false, error: 'Room not found' };
+        }
+
+        const roomObj = roomList.get(room);
+
+        const cmd = {
+            type: 'ejectAll',
+            peer_name: 'API',
+            broadcast: true,
+            redirect: redirect || '',
+        };
+        const reason = ServerApi.normalizeEjectMessage(message);
+        if (reason) cmd.message = reason;
+
+        // Notify all peers to exit (clients show the optional reason, then redirect)
+        roomObj.sendToAll('cmd', cmd);
+
+        // Remove all peers and close transports
+        const peers = roomObj.getPeers();
+        for (const [peerId] of peers) {
+            roomObj.removePeer(peerId);
+        }
+
+        // Delete room from the active list
+        roomList.delete(room);
+
+        return { success: true, message: 'Meeting ended', room: room };
+    }
+
+    getMeetingURL() {
+        return 'https://' + this._host + '/join/' + uuidV4();
+    }
+
+    getJoinURL(data) {
+        // Get data
+        const { room, roomPassword, name, avatar, audio, video, screen, chat, hide, notify, duration, token } = data;
+        const { noiseSuppression } = data;
+
+        const roomValue = room || uuidV4();
+        const roomPasswordValue = roomPassword || false;
+        const nameValue = name || 'User-' + this.getRandomNumber();
+        const avatarValue = avatar || false;
+        const audioValue = audio || false;
+        const videoValue = video || false;
+        const screenValue = screen || false;
+        const chatValue = chat || false;
+        const hideValue = hide || false;
+        const notifyValue = notify || false;
+        const durationValue = duration || 'unlimited';
+        // Optional: omitted means the server default applies
+        const noiseSuppressionParam =
+            noiseSuppression === undefined || noiseSuppression === null || noiseSuppression === ''
+                ? ''
+                : `&noiseSuppression=${encodeURIComponent(noiseSuppression)}`;
+        const jwtToken = token ? '&token=' + this.getToken(token) : '';
+
+        const joinURL =
+            'https://' +
+            this._host +
+            '/join?' +
+            `room=${roomValue}` +
+            `&roomPassword=${roomPasswordValue}` +
+            `&name=${encodeURIComponent(nameValue)}` +
+            `&avatar=${encodeURIComponent(avatarValue)}` +
+            `&audio=${audioValue}` +
+            `&video=${videoValue}` +
+            `&screen=${screenValue}` +
+            `&chat=${chatValue}` +
+            `&hide=${hideValue}` +
+            `&notify=${notifyValue}` +
+            `&duration=${durationValue}` +
+            noiseSuppressionParam +
+            jwtToken;
+
+        return joinURL;
+    }
+
+    getToken(token) {
+        if (!token) return '';
+
+        const { username = 'username', password = 'password', presenter = false, expire } = token;
+
+        const expireValue = expire || JWT_EXP;
+        const jwtKey = getJwtKeys(config.security?.jwt?.key).auth;
+
+        // Constructing payload
+        const payload = {
+            username: String(username),
+            password: String(password),
+            presenter: String(presenter),
+        };
+
+        // Encrypt payload using AES encryption
+        const payloadString = JSON.stringify(payload);
+        const encryptedPayload = CryptoJS.AES.encrypt(payloadString, jwtKey).toString();
+
+        // Constructing JWT token
+        const jwtToken = jwt.sign({ data: encryptedPayload }, jwtKey, { expiresIn: expireValue });
+
+        return jwtToken;
+    }
+
+    getRandomNumber() {
+        return Math.floor(Math.random() * 999999);
+    }
+};

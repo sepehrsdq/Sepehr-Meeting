@@ -1,0 +1,211 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl" class="no-js">
+    <head>
+        <title id="title">سامانه سپهر — ساخت اتاق تازه</title>
+        <link id="icon" rel="shortcut icon" href="../images/logo.svg" />
+        <link id="appleTouchIcon" rel="apple-touch-icon" href="../images/logo.svg" />
+
+        <meta charset="utf-8" />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="color-scheme" content="light" />
+        <meta
+            id="description"
+            name="description"
+            content="یک نام برای جلسه انتخاب کنید، لینک اختصاصی آن را به اشتراک بگذارید و همان لحظه جلسه را آغاز کنید."
+        />
+
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="سامانه سپهر" />
+        <meta property="og:title" content="سامانه سپهر — جلسات تصویری سازمانی" />
+        <meta property="og:description" content="سامانه سپهر؛ بستر جلسات تصویری سازمانی، امن و سریع. بدون نصب، مستقیماً در مرورگر و با میزبانی کامل در شبکه داخلی سازمان." />
+        <meta property="og:image" content="/images/logo.svg" />
+        <meta property="og:url" content="/" />
+
+        <link rel="stylesheet" href="../vendor/fonts/vazirmatn/vazirmatn.css" />
+        <link rel="stylesheet" href="../vendor/fontawesome/6.1.1/css/all.min.css" />
+        <link rel="stylesheet" href="../css/SepehrLight.css" />
+        <link rel="stylesheet" href="../css/RTL.css" />
+        <link rel="stylesheet" href="../css/Swal.css" />
+
+        <script>
+            document.documentElement.classList.remove('no-js');
+            document.documentElement.classList.add('js', 'sp-js');
+        </script>
+
+        <script defer src="../vendor/sweetalert2/sweetalert2.min.js"></script>
+        <script defer src="../js/Swal.js"></script>
+        <script src="../vendor/xss/xss.min.js"></script>
+        <script defer src="../js/Brand.js"></script>
+        <script defer src="../js/Utils.js"></script>
+        <script defer src="../js/Common.js"></script>
+        <script defer src="../js/ScheduleMeeting.js"></script>
+        <script defer src="../js/SepehrUI.js"></script>
+        <script async src="../js/Stats.js"></script>
+    </head>
+
+    <body class="sp-page">
+        <a class="sp-skip" href="#main">پرش به محتوای اصلی</a>
+        <div class="sp-progress" aria-hidden="true"></div>
+
+        <div class="sp-bg" aria-hidden="true">
+            <span class="sp-orb sp-orb--1"></span>
+            <span class="sp-orb sp-orb--2"></span>
+            <span class="sp-orb sp-orb--3"></span>
+        </div>
+
+        <header class="sp-header">
+            <div class="sp-shell sp-header__inner">
+                <a class="sp-brand" href="/" aria-label="سامانه سپهر — صفحه اصلی">
+                    <img src="../images/logo.svg" width="42" height="42" alt="" />
+                    <span class="sp-brand__text">
+                        <span class="sp-brand__name">سامانه سپهر</span>
+                        <span class="sp-brand__tag">جلسات تصویری سازمانی</span>
+                    </span>
+                </a>
+
+                <div class="sp-header__actions">
+                    <a class="sp-btn sp-btn--ghost sp-btn--sm" href="/">خانه</a>
+                    <a class="sp-btn sp-btn--primary sp-btn--sm" href="#join">ساخت جلسه</a>
+                </div>
+            </div>
+        </header>
+
+        <main id="main">
+            <section class="sp-hero" style="padding-bottom: 1.5rem">
+                <div class="sp-shell">
+                    <div class="sp-section__head" style="margin-bottom: 0">
+                        <span class="sp-kicker" data-reveal>
+                            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+                            اتاق تازه
+                        </span>
+                        <h1 id="newRoomTitle" class="sp-display" data-reveal data-delay="60">
+                            سه گام ساده تا جلسه شما
+                        </h1>
+                        <p id="newRoomDescription" class="sp-lead" data-reveal data-delay="120">
+                            برای هر جلسه یک نشانی اختصاصی ساخته می‌شود؛ آن را با همکاران به اشتراک بگذارید و
+                            بدون معطلی جلسه را آغاز کنید.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="join" class="sp-join" style="padding-bottom: clamp(3rem, 6vw, 5rem)">
+                <div class="sp-shell">
+                    <div class="sp-join__card" data-reveal>
+                        <div>
+                            <h3 id="joinDescription" class="sp-join__title">یک نام برای جلسه انتخاب کنید</h3>
+                            <p class="sp-join__hint">
+                                نام کوتاه و خوانا بهترین انتخاب است. می‌توانید نام را خودتان بنویسید یا از
+                                دکمه ساخت نام تازه کمک بگیرید.
+                            </p>
+                            <ul class="sp-join__points">
+                                <li>
+                                    <i class="fas fa-check" aria-hidden="true"></i>
+                                    نشانی یکتا برای هر جلسه
+                                </li>
+                                <li>
+                                    <i class="fas fa-check" aria-hidden="true"></i>
+                                    امکان تعیین رمز و اتاق انتظار
+                                </li>
+                                <li>
+                                    <i class="fas fa-check" aria-hidden="true"></i>
+                                    ورود مهمان‌ها با یک کلیک
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="sp-form">
+                            <label class="screen-reader-text" for="roomName">نام جلسه</label>
+                            <div class="sp-room">
+                                <div class="sp-room__row">
+                                    <div class="sp-field">
+                                        <i class="fas fa-door-open sp-field__icon" aria-hidden="true"></i>
+                                        <input
+                                            id="roomName"
+                                            class="sp-input"
+                                            type="text"
+                                            maxlength="32"
+                                            value=""
+                                            placeholder="یک نام برای جلسه بنویسید"
+                                            autocomplete="off"
+                                            dir="auto"
+                                        />
+                                    </div>
+                                    <button
+                                        id="genRoomButton"
+                                        class="gen-room-btn"
+                                        type="button"
+                                        aria-label="ساخت نام تازه برای جلسه"
+                                        title="ساخت نام تازه برای جلسه"
+                                    >
+                                        <i class="fas fa-arrows-rotate" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+
+                                <button id="joinRoomButton" class="button button-primary pulse" type="button">
+                                    ورود به جلسه
+                                </button>
+                                <button id="customizeRoomButton" class="button button-secondary button-block" type="button">
+                                    تنظیمات پیشرفته جلسه
+                                </button>
+
+                                <button id="scheduleMeetingBtn" class="schedule-meeting-btn" type="button" hidden>
+                                    <i class="fas fa-calendar-check" aria-hidden="true"></i>
+                                    زمان‌بندی جلسه
+                                </button>
+                            </div>
+
+                            <div id="lastRoomContainer" class="sp-last">
+                                <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                                <span id="joinLastLabel">جلسه اخیر شما:</span>
+                                <a id="lastRoom"></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="sp-section sp-section--tint" style="padding-top: clamp(2.5rem, 5vw, 4rem)">
+                <div class="sp-shell">
+                    <div class="sp-section__head" data-reveal>
+                        <span class="sp-kicker"><i class="fas fa-route" aria-hidden="true"></i> مسیر کوتاه</span>
+                        <h2 class="sp-h2">بعد از ساخت اتاق چه می‌شود؟</h2>
+                    </div>
+                    <div class="sp-steps">
+                        <article class="sp-step" data-reveal>
+                            <span class="sp-step__num" aria-hidden="true"></span>
+                            <h3>لینک را کپی کنید</h3>
+                            <p>نشانی اتاق را از نوار مرورگر یا تنظیمات جلسه بردارید.</p>
+                        </article>
+                        <article class="sp-step" data-reveal data-delay="80">
+                            <span class="sp-step__num" aria-hidden="true"></span>
+                            <h3>همکاران را دعوت کنید</h3>
+                            <p>لینک را در پیام‌رسان سازمانی یا ایمیل برای آن‌ها بفرستید.</p>
+                        </article>
+                        <article class="sp-step" data-reveal data-delay="160">
+                            <span class="sp-step__num" aria-hidden="true"></span>
+                            <h3>جلسه را شروع کنید</h3>
+                            <p>به‌محض ورود شما، جلسه آماده پذیرش مهمان‌ها می‌شود.</p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer id="footer" class="sp-footer">
+            <div class="sp-shell">
+                <div class="sp-footer__bottom" style="margin-top: 0; border-top: 0; padding-top: 0">
+                    <span>&copy; ۲۰۲۶ سامانه سپهر — همه حقوق محفوظ است.</span>
+                    <span id="footerVersion" class="sp-footer__version">{{APP_VERSION}}</span>
+                </div>
+            </div>
+        </footer>
+
+        <button class="sp-top" type="button" aria-label="بازگشت به بالای صفحه">
+            <i class="fas fa-arrow-up" aria-hidden="true"></i>
+        </button>
+    </body>
+</html>

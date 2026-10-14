@@ -1,0 +1,1534 @@
+'use strict';
+
+const { v4: uuidv4 } = require('uuid');
+const config = require('./config');
+const RtmpStreaming = require('./RtmpStreaming');
+const Logger = require('./Logger');
+const log = new Logger('Room');
+
+const { audioLevelObserverEnabled, activeSpeakerObserverEnabled } = config.mediasoup.router;
+
+// Time given to clients to show the "time limit reached" notice and leave before being disconnected
+const TIME_LIMIT_GRACE_MS = 15000;
+
+module.exports = class Room {
+    constructor(room_id, worker, io, options = {}) {
+        this.id = room_id;
+        // Unique, one-time-use identifier for this specific room/conference instance.
+        // Generated when the room is created (first peer joins) and destroyed with the room
+        // (last peer leaves). Reusing the same room name later yields a brand-new sessionId,
+        // so webhook events and recordings can be reliably grouped per meeting instance.
+        this.sessionId = uuidv4();
+        this.worker = worker;
+        this.webRtcServer = worker.appData.webRtcServer;
+        this.webRtcServerActive = config.mediasoup.webRtcServerActive;
+        this.io = io;
+        this.audioLevelObserver = null;
+        this.audioLevelObserverEnabled = audioLevelObserverEnabled !== undefined ? audioLevelObserverEnabled : true;
+        this.audioLastUpdateTime = 0;
+        this.activeSpeakerObserverEnabled =
+            activeSpeakerObserverEnabled !== undefined ? activeSpeakerObserverEnabled : false;
+        this.activeSpeakerObserver = null;
+        // ##########################
+        this._isBroadcasting = false;
+        // ##########################
+        this._isLocked = false;
+        this._isLobbyEnabled = false;
+        this._isJoinLocked = false;
+        this._roomPassword = null;
+        this._hostOnlyRecording = false;
+        // Server-side whiteboard lock state. Authoritative — does not depend on the client
+        // clicking the lock button. Used to drop non-presenter whiteboard writes when set.
+        this._wbIsLock = false;
+        // Server-side collaborative editor lock state (authoritative, same model as the whiteboard).
+        this._editorIsLock = false;
+        this._wbShowParticipantNames = false;
+        // ##########################
+        this.recording = {
+            recSyncServerToS3: (config?.integrations?.s3?.enabled && config?.media?.recording?.uploadToS3) || false,
+            recSyncServerRecording: config?.media?.recording?.enabled || false,
+            recSyncServerEndpoint: config?.media?.recording?.endpoint || '',
+        };
+        // ##########################
+
+        this.notifications = {
+            mode: {
+                email: '',
+            },
+            events: {
+                join: false,
+            },
+        };
+
+        this._moderator = {
+            video_start_privacy: false,
+            audio_start_muted: false,
+            video_start_hidden: false,
+            noise_suppression_start_off: false,
+            audio_cant_unmute: false,
+            video_cant_unhide: false,
+            screen_cant_share: false,
+            screen_annotations_cant_draw: false,
+            chat_cant_privately: false,
+            chat_cant_publicly: false,
+            chat_cant_chatgpt: false,
+            chat_cant_deep_seek: false,
+            media_cant_sharing: false,
+            polls_cant_create: false,
+        };
+        this._followMe = null;
+        this.survey = config?.features?.survey;
+        this.redirect = config?.features?.redirect;
+        this.videoAIEnabled = config?.integrations?.videoAI?.enabled || false;
+        const videoAIConfig = config?.integrations?.videoAI || {};
+        this.videoAIProviders = this.videoAIEnabled
+            ? {
+                  available: {
+                      liveavatar: !!(videoAIConfig?.liveavatar?.enabled && videoAIConfig?.liveavatar?.apiKey),
+                      anam: !!(videoAIConfig?.anam?.enabled && videoAIConfig?.anam?.apiKey),
+                  },
+                  defaultProvider: videoAIConfig?.defaultProvider || 'liveavatar',
+              }
+            : null;
+        this.videoAISessionTimeLimit = videoAIConfig?.sessionTimeLimit || 0;
+        this.peers = new Map();
+        this.videoTextAnnotations = new Map();
+        this.videoDrawingAnnotations = new Map();
+        this.videoDrawingPermissions = new Map();
+        this.bannedPeers = new Map(); // uuid or auth:<username> -> timestamp, with TTL-based expiration
+        this.webRtcTransport = config.mediasoup.webRtcTransport;
+        this.router = null;
+        this.routerSettings = config.mediasoup.router;
+        // Optional (horizontal scaling): spreads this room over several mediasoup workers
+        this.routerPool = options.routerPool || null;
+        this.routerReady = this.createTheRouter();
+
+        // RTMP configuration
+        this.rtmpStreaming = new RtmpStreaming(this);
+
+        // Polls
+        this.polls = [];
+
+        this.isHostProtected = config?.security?.host?.protected || false;
+
+        // Share Media
+        this.shareMediaData = {};
+
+        this.maxParticipants = config?.moderation?.room?.maxParticipants || 1000;
+        this.globalLobby = config?.moderation?.room?.lobby || false;
+
+        // Room-wide time limit (duration=HH:MM:SS), shared by all peers
+        this._timeLimit = null;
+    }
+
+    // ####################################################
+    // ROOM INFO
+    // ####################################################
+
+    toJson() {
+        return {
+            id: this.id,
+            sessionId: this.sessionId,
+            broadcasting: this._isBroadcasting,
+            recording: this.recording,
+            config: {
+                isLocked: this._isLocked,
+                isLobbyEnabled: this._isLobbyEnabled,
+                isJoinLocked: this._isJoinLocked,
+                hostOnlyRecording: this._hostOnlyRecording,
+                whiteboardParticipantNames: this._wbShowParticipantNames,
+            },
+            rtmp: {
+                enabled: this.rtmpStreaming.rtmp && this.rtmpStreaming.rtmp.enabled,
+                fromFile: this.rtmpStreaming.rtmp && this.rtmpStreaming.rtmp.fromFile,
+                fromUrl: this.rtmpStreaming.rtmp && this.rtmpStreaming.rtmp.fromUrl,
+                fromStream: this.rtmpStreaming.rtmp && this.rtmpStreaming.rtmp.fromStream,
+                allowCustomUrl: this.rtmpStreaming.rtmp && this.rtmpStreaming.rtmp.allowCustomUrl,
+                allowQualitySelection:
+                    this.rtmpStreaming.rtmp && this.rtmpStreaming.rtmp.allowQualitySelection !== false,
+                videoQuality: this.rtmpStreaming.rtmp && this.rtmpStreaming.rtmp.videoQuality,
+                maxVideoQuality: this.rtmpStreaming.rtmp && this.rtmpStreaming.rtmp.maxVideoQuality,
+            },
+            hostProtected: this.isHostProtected,
+            whip: { enabled: config?.media?.whip?.enabled === true },
+            moderator: this._moderator,
+            followMe: this._followMe,
+            survey: this.survey,
+            redirect: this.redirect,
+            videoAIEnabled: this.videoAIEnabled,
+            videoAIProviders: this.videoAIProviders,
+            videoAISessionTimeLimit: this.videoAISessionTimeLimit,
+            chatGPTEnabled: config?.integrations?.chatGPT?.enabled || false,
+            remoteControlEnabled: config?.features?.remoteControl?.enabled || false,
+            remoteControlDownloadUrl: config?.features?.remoteControl?.downloadUrl,
+            whisperEnabled: config?.integrations?.whisper?.enabled || false,
+            whisperSegmentSeconds: config?.integrations?.whisper?.segmentSeconds || 5,
+            thereIsPolls: this.thereIsPolls(),
+            shareMediaData: this.shareMediaData,
+            dominantSpeaker: this.activeSpeakerObserverEnabled,
+            peers: JSON.stringify([...this.peers]),
+            peersCount: this.getPeersCount(),
+            maxParticipants: this.maxParticipants,
+            maxParticipantsReached: this.peers.size > this.maxParticipants,
+            globalLobby: this.globalLobby,
+            timeLimit: this.getTimeLimit(),
+        };
+    }
+
+    getSessionId() {
+        return this.sessionId;
+    }
+
+    // ####################################################
+    // ROOM TIME LIMIT
+    // ####################################################
+
+    static parseDuration(duration) {
+        if (typeof duration !== 'string') return 0;
+        const match = duration.match(/^(\d{2}):(\d{2}):(\d{2})$/);
+        if (!match) return 0;
+        const [hours, minutes, seconds] = match.slice(1).map(Number);
+        if (minutes > 59 || seconds > 59) return 0;
+        return (hours * 3600 + minutes * 60 + seconds) * 1000;
+    }
+
+    startTimeLimit(duration) {
+        if (this._timeLimit) return false;
+
+        const durationMs = Room.parseDuration(duration);
+        if (!durationMs) return false;
+
+        this._timeLimit = {
+            durationMs,
+            endsAt: Date.now() + durationMs,
+            reached: false,
+            timer: setTimeout(() => this.endTimeLimit(), durationMs),
+            graceTimer: null,
+        };
+
+        log.info('Room time limit started', { room_id: this.id, duration });
+        return true;
+    }
+
+    endTimeLimit() {
+        if (!this._timeLimit || this._timeLimit.reached) return;
+
+        this._timeLimit.reached = true;
+        this._timeLimit.timer = null;
+
+        log.info('Room time limit reached', { room_id: this.id, peers: this.getPeersCount() });
+
+        for (const peer_id of this.peers.keys()) {
+            this.send(peer_id, 'roomTimeLimit', { action: 'end' });
+        }
+
+        // Clients leave on their own, disconnect anyone still connected once the grace period is over
+        this._timeLimit.graceTimer = setTimeout(() => {
+            if (this._timeLimit) this._timeLimit.graceTimer = null;
+            for (const peer_id of [...this.peers.keys()]) {
+                this.io.in(peer_id).disconnectSockets(true);
+            }
+        }, TIME_LIMIT_GRACE_MS);
+    }
+
+    getTimeLimit() {
+        if (!this._timeLimit) return null;
+        const { durationMs, endsAt, reached } = this._timeLimit;
+        return {
+            durationMs,
+            remainingMs: reached ? 0 : Math.max(0, endsAt - Date.now()),
+            reached,
+        };
+    }
+
+    isTimeLimitReached() {
+        return Boolean(this._timeLimit?.reached);
+    }
+
+    clearTimeLimit() {
+        if (!this._timeLimit) return;
+        clearTimeout(this._timeLimit.timer);
+        clearTimeout(this._timeLimit.graceTimer);
+        this._timeLimit = null;
+    }
+
+    // ##############################################
+    // SHARE MEDIA
+    // ##############################################
+
+    updateShareMedia(data) {
+        this.shareMediaData = data;
+    }
+
+    // ##############################################
+    // POLLS
+    // ##############################################
+
+    thereIsPolls() {
+        return this.polls.length > 0;
+    }
+
+    getPolls() {
+        return this.polls;
+    }
+
+    convertPolls(polls) {
+        return polls.map((poll) => {
+            const voters = poll.voters ? Object.fromEntries(poll.voters.entries()) : {};
+            return { ...poll, voters };
+        });
+    }
+
+    // ##############################################
+    // RTMP (delegated to RtmpStreaming)
+    // ##############################################
+
+    isRtmpFileStreamerActive() {
+        return this.rtmpStreaming.isRtmpFileStreamerActive();
+    }
+
+    async getRTMP(dir) {
+        return this.rtmpStreaming.getRTMP(dir);
+    }
+
+    async startRTMP(socket_id, room, host, port, file, customRtmpUrl) {
+        return this.rtmpStreaming.startRTMP(socket_id, room, host, port, file, customRtmpUrl);
+    }
+
+    stopRTMP() {
+        return this.rtmpStreaming.stopRTMP();
+    }
+
+    isRtmpUrlStreamerActive() {
+        return this.rtmpStreaming.isRtmpUrlStreamerActive();
+    }
+
+    async startRTMPfromURL(socket_id, room, host, port, inputVideoURL, customRtmpUrl) {
+        return this.rtmpStreaming.startRTMPfromURL(socket_id, room, host, port, inputVideoURL, customRtmpUrl);
+    }
+
+    stopRTMPfromURL() {
+        return this.rtmpStreaming.stopRTMPfromURL();
+    }
+
+    getRTMPUrl(host, port) {
+        return this.rtmpStreaming.getRTMPUrl(host, port);
+    }
+
+    generateRTMPUrl(baseURL, streamPath, secretKey, expirationHours) {
+        return this.rtmpStreaming.generateRTMPUrl(baseURL, streamPath, secretKey, expirationHours);
+    }
+
+    // ####################################################
+    // ROUTER
+    // ####################################################
+
+    async createTheRouter() {
+        const { mediaCodecs } = this.routerSettings;
+        const router = await this.worker.createRouter({
+            mediaCodecs,
+        });
+
+        this.router = router;
+        this.routerPool?.setMainRouter(router, this.worker);
+        const observerPromises = [];
+        if (this.audioLevelObserverEnabled) {
+            log.debug('Audio Level Observer enabled, starting observation...');
+            observerPromises.push(
+                this.startAudioLevelObservation().catch((error) => {
+                    log.error('Failed to start audio level observation', error);
+                })
+            );
+        }
+        if (this.activeSpeakerObserverEnabled) {
+            log.debug('Active Speaker Observer enabled, starting observation...');
+            observerPromises.push(
+                this.startActiveSpeakerObserver().catch((error) => {
+                    log.error('Failed to start active speaker observer', error);
+                })
+            );
+        }
+        await Promise.all(observerPromises);
+
+        this.router.observer.on('close', () => {
+            log.debug('---------------> Router is now closed as the last peer has left the room', {
+                room: this.id,
+            });
+        });
+
+        return router;
+    }
+
+    async ready() {
+        await this.routerReady;
+        return this;
+    }
+
+    getRtpCapabilities() {
+        return this.router.rtpCapabilities;
+    }
+
+    closeRouter() {
+        if (this.router && !this.router.closed) {
+            this.router.close();
+            log.debug('Router closed', { router_id: this.router.id });
+        }
+    }
+
+    async close() {
+        this.clearTimeLimit();
+        this.closeAudioLevelObserver();
+        this.closeActiveSpeakerObserver();
+        this.rtmpStreaming.closeAll();
+        this.routerPool?.close();
+        this.closeRouter();
+        log.debug('Room closed', { room_id: this.id });
+    }
+
+    // ####################################################
+    // MULTI-WORKER ROUTERS (optional, see scaling/RoomRouterPool)
+    // ####################################################
+
+    // Router hosting the peer's transports: always the main router without a router pool
+    getPeerRouter(socket_id) {
+        return this.routerPool?.getPeerRouter(socket_id) || this.router;
+    }
+
+    async assignPeerRouter(socket_id) {
+        return this.routerPool ? this.routerPool.assignPeer(socket_id) : this.router;
+    }
+
+    // Makes a producer consumable on the given router (no-op when it already lives there)
+    async ensureProducerOnRouter(producerId, router) {
+        if (!this.routerPool) return;
+        const ownerId = this.getProducerOwnerId(producerId);
+        const source = ownerId ? this.getPeerRouter(ownerId) : this.router;
+        await this.routerPool.pipeProducer(producerId, source, router);
+    }
+
+    async ensureDataProducerOnRouter(dataProducerId, router) {
+        if (!this.routerPool) return;
+        const ownerId = this.getDataProducerOwnerId(dataProducerId);
+        const source = ownerId ? this.getPeerRouter(ownerId) : this.router;
+        await this.routerPool.pipeDataProducer(dataProducerId, source, router);
+    }
+
+    getDataProducerOwnerId(dataProducerId) {
+        for (const [peerId, peer] of this.peers) {
+            if (peer.dataProducers?.has(dataProducerId)) return peerId;
+        }
+        return null;
+    }
+
+    getRouterStats() {
+        return this.routerPool ? this.routerPool.getStats() : null;
+    }
+
+    // ####################################################
+    // PRODUCER AUDIO LEVEL OBSERVER
+    // ####################################################
+
+    async startAudioLevelObservation() {
+        log.debug('Start audioLevelObserver for signaling active speaker...');
+
+        this.audioLevelObserver = await this.router.createAudioLevelObserver({
+            maxEntries: 1,
+            threshold: -70,
+            interval: 100,
+        });
+
+        this.audioLevelObserver.on('volumes', (volumes) => {
+            this.sendActiveSpeakerVolume(volumes);
+        });
+        this.audioLevelObserver.on('silence', () => {
+            //log.debug('audioLevelObserver', { volume: 'silence' });
+        });
+    }
+
+    sendActiveSpeakerVolume(volumes) {
+        try {
+            if (!Array.isArray(volumes) || volumes.length === 0) {
+                throw new Error('Invalid volumes array');
+            }
+
+            if (Date.now() > this.audioLastUpdateTime + 100) {
+                this.audioLastUpdateTime = Date.now();
+
+                const { producer, volume } = volumes[0];
+                const audioVolume = Math.round(Math.pow(10, volume / 70) * 10); // Scale volume to 1-10
+
+                if (audioVolume > 1) {
+                    this.peers.forEach((peer) => {
+                        const { id, peer_audio, peer_name } = peer;
+                        peer.producers.forEach((peerProducer) => {
+                            if (peerProducer.id === producer.id && peerProducer.kind === 'audio' && peer_audio) {
+                                const data = {
+                                    peer_id: id,
+                                    peer_name: peer_name,
+                                    audioVolume: audioVolume,
+                                };
+                                // log.debug('Sending audio volume', data);
+                                this.sendToAll('audioVolume', data);
+                                return;
+                            }
+                        });
+                    });
+                }
+            }
+        } catch (error) {
+            log.error('Error sending active speaker volume', error.message);
+        }
+    }
+
+    async addProducerToAudioLevelObserver(producer) {
+        if (!this.audioLevelObserverEnabled || !this.audioLevelObserver || this.audioLevelObserver.closed) return;
+
+        try {
+            // Observers live on the main router
+            await this.ensureProducerOnRouter(producer.producerId, this.router);
+            await this.audioLevelObserver.addProducer(producer);
+            log.debug('Producer added to audio level observer', { producer });
+        } catch (error) {
+            log.warn('Failed to add producer to audio level observer', { producer, error: error.message });
+        }
+    }
+
+    closeAudioLevelObserver() {
+        if (this.audioLevelObserver && !this.audioLevelObserver.closed) {
+            this.audioLevelObserver.close();
+            this.audioLevelObserver = null;
+            log.debug('Audio Level Observer closed');
+        }
+    }
+
+    // ####################################################
+    // PRODUCER DOMINANT ACTIVE SPEAKER
+    // ####################################################
+
+    async startActiveSpeakerObserver() {
+        log.debug('Start activeSpeakerObserver for signaling dominant speaker...');
+        this.activeSpeakerObserver = await this.router.createActiveSpeakerObserver();
+        this.activeSpeakerObserver.on('dominantspeaker', (dominantSpeaker) => {
+            if (!dominantSpeaker.producer) {
+                return;
+            }
+            log.debug('activeSpeakerObserver "dominantspeaker" event', dominantSpeaker.producer.id);
+            this.peers.forEach((peer) => {
+                const { id, peer_audio, peer_name } = peer;
+                if (peer.producers instanceof Map) {
+                    for (const peerProducer of peer.producers.values()) {
+                        if (
+                            peerProducer.id === dominantSpeaker.producer.id &&
+                            peerProducer.kind === 'audio' &&
+                            peer_audio
+                        ) {
+                            let videoProducerId = null;
+                            for (const p of peer.producers.values()) {
+                                if (p.kind === 'video') {
+                                    videoProducerId = p.id;
+                                    break;
+                                }
+                            }
+                            const data = {
+                                producer_id: videoProducerId,
+                                peer_id: id,
+                                peer_name: peer_name,
+                            };
+                            log.debug('Sending dominant speaker', data);
+                            this.sendToAll('dominantSpeaker', data);
+                            break;
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    async addProducerToActiveSpeakerObserver(producer) {
+        if (!this.activeSpeakerObserverEnabled || !this.activeSpeakerObserver || this.activeSpeakerObserver.closed)
+            return;
+
+        try {
+            await this.ensureProducerOnRouter(producer.producerId, this.router);
+            await this.activeSpeakerObserver.addProducer(producer);
+            log.debug('Producer added to active speaker observer', { producer });
+        } catch (error) {
+            log.warn('Failed to add producer to active speaker observer', { producer, error: error.message });
+        }
+    }
+
+    closeActiveSpeakerObserver() {
+        if (this.activeSpeakerObserver && !this.activeSpeakerObserver.closed) {
+            this.activeSpeakerObserver.close();
+            this.activeSpeakerObserver = null;
+            log.debug('Active Speaker Observer closed');
+        }
+    }
+
+    // ####################################################
+    // ROOM NOTIFICATIONS
+    // ####################################################
+
+    updateRoomNotifications(data) {
+        log.debug('Update room notifications', data);
+        this.notifications = data.notifications;
+    }
+
+    getRoomNotifications() {
+        log.debug('get room notifications', this.notifications);
+        return this.notifications;
+    }
+
+    // ####################################################
+    // ROOM MODERATOR
+    // ####################################################
+
+    updateRoomModeratorALL(data) {
+        this._moderator = data;
+        log.debug('Update room moderator all data', this._moderator);
+    }
+
+    updateRoomModerator(data) {
+        log.debug('Update room moderator', data);
+        switch (data.type) {
+            case 'video_start_privacy':
+                this._moderator.video_start_privacy = data.status;
+                break;
+            case 'audio_start_muted':
+                this._moderator.audio_start_muted = data.status;
+                break;
+            case 'video_start_hidden':
+                this._moderator.video_start_hidden = data.status;
+                break;
+            case 'noise_suppression_start_off':
+                this._moderator.noise_suppression_start_off = data.status;
+                break;
+            case 'audio_cant_unmute':
+                this._moderator.audio_cant_unmute = data.status;
+                break;
+            case 'video_cant_unhide':
+                this._moderator.video_cant_unhide = data.status;
+                break;
+            case 'screen_cant_share':
+                this._moderator.screen_cant_share = data.status;
+                break;
+            case 'screen_annotations_cant_draw':
+                this._moderator.screen_annotations_cant_draw = data.status;
+                break;
+            case 'chat_cant_privately':
+                this._moderator.chat_cant_privately = data.status;
+                break;
+            case 'chat_cant_publicly':
+                this._moderator.chat_cant_publicly = data.status;
+                break;
+            case 'chat_cant_chatgpt':
+                this._moderator.chat_cant_chatgpt = data.status;
+                break;
+            case 'chat_cant_deep_seek':
+                this._moderator.chat_cant_deep_seek = data.status;
+                break;
+            case 'media_cant_sharing':
+                this._moderator.media_cant_sharing = data.status;
+                break;
+            case 'polls_cant_create':
+                this._moderator.polls_cant_create = data.status;
+                break;
+            default:
+                break;
+        }
+    }
+
+    // ####################################################
+    // FOLLOW ME
+    // ####################################################
+
+    setFollowMe(data) {
+        this._followMe = data;
+        log.debug('Set follow me', this._followMe);
+    }
+
+    // ####################################################
+    // PEERS
+    // ####################################################
+
+    addPeer(peer) {
+        this.peers.set(peer.id, peer);
+    }
+
+    delPeer(peer) {
+        this.peers.delete(peer.id);
+    }
+
+    getPeer(socket_id) {
+        if (!this.peers.has(socket_id)) return;
+
+        const peer = this.peers.get(socket_id);
+
+        return peer;
+    }
+
+    getPeers() {
+        return this.peers;
+    }
+
+    getPeersCount() {
+        return this.peers.size;
+    }
+
+    getProducerListForPeer(socket_id) {
+        const producerList = [];
+        this.peers.forEach((peer, peerId) => {
+            // Skip the requesting peer's own producers to prevent self-consumption (echo)
+            if (peerId === socket_id) return;
+            const { peer_name, peer_info } = peer;
+            peer.producers.forEach((producer) => {
+                const textAnnotations =
+                    producer.appData.mediaType === 'screenType'
+                        ? Array.from(this.videoTextAnnotations.get(producer.id)?.values() || [])
+                        : [];
+                const drawingAnnotations =
+                    producer.appData.mediaType === 'screenType'
+                        ? Array.from(this.videoDrawingAnnotations.get(producer.id)?.values() || [])
+                        : [];
+                producerList.push({
+                    producer_id: producer.id,
+                    producer_socket_id: peerId,
+                    peer_name: peer_name,
+                    peer_info: peer_info,
+                    type: producer.appData.mediaType,
+                    text_annotations: textAnnotations,
+                    drawing_annotations: drawingAnnotations,
+                    annotations_allowed: this.videoDrawingPermissions.get(producer.id) !== false,
+                });
+            });
+        });
+        return producerList;
+    }
+
+    getProducerById(producerId) {
+        for (const peer of this.peers.values()) {
+            const producer = peer.getProducer(producerId);
+            if (producer && !producer.closed) return producer;
+        }
+        return null;
+    }
+
+    isScreenProducer(producerId) {
+        return this.getProducerById(producerId)?.appData?.mediaType === 'screenType';
+    }
+
+    getProducerOwnerId(producerId) {
+        for (const [peerId, peer] of this.peers) {
+            if (peer.getProducer(producerId)) return peerId;
+        }
+        return null;
+    }
+
+    getVideoTextAnnotations(producerId) {
+        if (!this.videoTextAnnotations.has(producerId)) {
+            this.videoTextAnnotations.set(producerId, new Map());
+        }
+        return this.videoTextAnnotations.get(producerId);
+    }
+
+    clearVideoTextAnnotations(producerId) {
+        this.videoTextAnnotations.delete(producerId);
+    }
+
+    getVideoDrawingAnnotations(producerId) {
+        if (!this.videoDrawingAnnotations.has(producerId)) {
+            this.videoDrawingAnnotations.set(producerId, new Map());
+        }
+        return this.videoDrawingAnnotations.get(producerId);
+    }
+
+    clearVideoDrawingAnnotations(producerId) {
+        this.videoDrawingAnnotations.delete(producerId);
+        this.videoDrawingPermissions.delete(producerId);
+    }
+
+    removePeer(socket_id) {
+        if (!this.peers.has(socket_id)) return;
+
+        const peer = this.getPeer(socket_id);
+
+        for (const producerId of peer.producers.keys()) {
+            this.clearVideoTextAnnotations(producerId);
+            this.clearVideoDrawingAnnotations(producerId);
+        }
+
+        peer.close();
+
+        this.routerPool?.releasePeer(socket_id);
+
+        this.delPeer(peer);
+
+        // WHIP ingest peers never keep a room alive on their own
+        if (!peer.isWhip && this.getPeersCount() > 0 && !this.hasNonWhipPeers()) {
+            for (const whipPeerId of [...this.peers.keys()]) {
+                this.removePeer(whipPeerId);
+            }
+            return;
+        }
+
+        if (this.getPeersCount() === 0) {
+            this.close();
+        }
+    }
+
+    hasNonWhipPeers() {
+        for (const peer of this.peers.values()) {
+            if (!peer.isWhip) return true;
+        }
+        return false;
+    }
+
+    getPresenterPeers() {
+        return Array.from(this.peers.values()).filter((peer) => peer.peer_presenter);
+    }
+
+    getLobbyPeers() {
+        return Array.from(this.peers.values()).filter((peer) => peer.peer_lobby);
+    }
+
+    // ####################################################
+    // WebRTC TRANSPORT
+    // ####################################################
+
+    getWebRtcTransportOptions(router = this.router) {
+        // Overflow routers carry the WebRtcServer of their own worker
+        const webRtcServer = router?.appData?.webRtcServer || this.webRtcServer;
+        const {
+            iceConsentTimeout = 35,
+            initialAvailableOutgoingBitrate,
+            minimumAvailableOutgoingBitrate,
+            maxIncomingBitrate,
+            listenInfos,
+            maxSendMessageSize = 262144,
+            maxReceiveMessageSize = 262144,
+        } = this.webRtcTransport;
+        return {
+            ...(this.webRtcServerActive ? { webRtcServer } : { listenInfos: listenInfos }),
+            enableUdp: true,
+            enableTcp: true,
+            preferUdp: true,
+            iceConsentTimeout,
+            // mediasoup 3.32.0: built-in BWE; bitrate limits are applied at creation time.
+            enableBwe: true,
+            initialAvailableOutgoingBitrate,
+            ...(minimumAvailableOutgoingBitrate && { minOutgoingBitrate: minimumAvailableOutgoingBitrate }),
+            ...(maxIncomingBitrate && { maxIncomingBitrate }),
+            enableSctp: true,
+            // mediasoup 3.20.0: numSctpStreams/maxSctpMessageSize removed;
+            // use maxSendMessageSize / maxReceiveMessageSize instead.
+            maxSendMessageSize,
+            maxReceiveMessageSize,
+        };
+    }
+
+    async createWebRtcTransport(socket_id) {
+        if (!this.peers.has(socket_id)) {
+            throw new Error(`Peer with socket ID ${socket_id} not found in the room`);
+        }
+
+        let router = this.router;
+        let transport;
+        try {
+            router = await this.assignPeerRouter(socket_id);
+
+            const webRtcTransportOptions = this.getWebRtcTransportOptions(router);
+
+            log.debug('webRtcTransportOptions ----->', webRtcTransportOptions);
+
+            transport = await router.createWebRtcTransport(webRtcTransportOptions);
+            if (!transport) {
+                throw new Error('Failed to create WebRTC Transport');
+            }
+        } catch (error) {
+            // Worker died or was closed (e.g. server restart/update): expected, keep it out of error logs/Sentry
+            if (error?.name === 'WorkerClosedError' || router?.closed) {
+                log.debug('WebRTC Transport not created, mediasoup worker closed', { error: error.message, socket_id });
+                const workerClosedError = new Error('Media server unavailable');
+                workerClosedError.name = 'WorkerClosedError';
+                throw workerClosedError;
+            }
+            log.error('Error creating WebRTC Transport', { error: error.message, socket_id });
+            throw new Error('Error creating WebRTC Transport');
+        }
+
+        if (!transport) {
+            throw new Error(`Transport not found for socket ID ${socket_id}`);
+        }
+
+        if (transport.closed) {
+            throw new Error('Transport is already closed');
+        }
+
+        const { id, type, iceParameters, iceCandidates, dtlsParameters, sctpParameters } = transport;
+
+        const peer = this.getPeer(socket_id);
+
+        if (!peer) {
+            if (!transport.closed) transport.close();
+            // The peer may have left while its router was being assigned
+            this.routerPool?.releasePeer(socket_id);
+            throw new Error(`Peer with socket ID ${socket_id} left before transport could be added`);
+        }
+
+        try {
+            peer.addTransport(transport);
+        } catch (error) {
+            log.error('Failed to add peer transport', error);
+            throw new Error(`Failed to add peer transport ${id}`);
+        }
+
+        log.debug('Transport created', {
+            room_id: this.id,
+            transport_id: transport.id,
+            type: type,
+            peer_name: peer.peer_name,
+        });
+
+        const { peer_name } = peer;
+        const { iceConsentTimeout = 35 } = this.webRtcTransport;
+        let iceDisconnectTimeout = null;
+
+        transport.observer.on('newproducer', (producer) => {
+            log.debug('---> new producer created [id:%s]', producer.id);
+        });
+
+        transport.observer.on('newconsumer', (consumer) => {
+            log.debug('---> new consumer created [id:%s]', consumer.id);
+        });
+
+        transport.observer.on('close', () => {
+            if (iceDisconnectTimeout) {
+                clearTimeout(iceDisconnectTimeout);
+                iceDisconnectTimeout = null;
+            }
+            peer.delTransport(transport.id);
+            this.send(socket_id, 'transportClosed', { transport_id: transport.id });
+            transport.removeAllListeners();
+            transport.observer.removeAllListeners();
+            log.debug('Transport closed', {
+                peer_name: peer_name,
+                transport_id: transport.id,
+                transport_closed: transport.closed,
+            });
+        });
+
+        transport.on('icestatechange', (iceState) => {
+            const iceLog = {
+                peer_name: peer_name,
+                transport_id: id,
+                iceState: iceState,
+            };
+            log.debug('ICE state changed', iceLog);
+
+            if (iceState === 'disconnected') {
+                log.debug('ICE state disconnected for transport waiting before closing', iceLog);
+                if (iceDisconnectTimeout) clearTimeout(iceDisconnectTimeout);
+                iceDisconnectTimeout = setTimeout(() => {
+                    iceDisconnectTimeout = null;
+                    if (transport.iceState === 'disconnected') {
+                        log.warn('Closing transport due to prolonged ICE disconnection', iceLog);
+                        if (!transport.closed) {
+                            transport.close();
+                        }
+                    }
+                }, iceConsentTimeout * 1000); // Wait iceConsentTimeout seconds before closing
+            } else {
+                // Clear pending timeout when ICE state recovers or moves to another state
+                if (iceDisconnectTimeout) {
+                    clearTimeout(iceDisconnectTimeout);
+                    iceDisconnectTimeout = null;
+                }
+                if (iceState === 'closed') {
+                    log.warn('ICE state closed, closing transport', iceLog);
+                    if (!transport.closed) {
+                        transport.close();
+                    }
+                }
+            }
+        });
+
+        transport.on('sctpstatechange', (sctpState) => {
+            log.debug('SCTP state changed', {
+                peer_name: peer_name,
+                transport_id: id,
+                sctpState: sctpState,
+            });
+        });
+
+        transport.on('dtlsstatechange', (dtlsState) => {
+            if (dtlsState === 'failed' || dtlsState === 'closed') {
+                log.warn('DTLS state changed, closing peer', {
+                    peer_name: peer_name,
+                    transport_id: id,
+                    dtlsState: dtlsState,
+                });
+                if (!transport.closed) {
+                    transport.close();
+                }
+            }
+        });
+
+        return {
+            id: id,
+            iceParameters: iceParameters,
+            iceCandidates: iceCandidates,
+            dtlsParameters: dtlsParameters,
+            sctpParameters: sctpParameters,
+        };
+    }
+
+    async connectPeerTransport(socket_id, transport_id, dtlsParameters) {
+        if (!socket_id || !transport_id || !dtlsParameters) {
+            throw new Error('Missing required parameters for connecting peer transport');
+        }
+
+        if (!this.peers.has(socket_id)) {
+            throw new Error(`Peer with socket ID ${socket_id} not found in the room`);
+        }
+
+        const peer = this.getPeer(socket_id);
+
+        try {
+            await peer.connectTransport(transport_id, dtlsParameters);
+            log.debug('Peer transport connected successfully', {
+                socket_id,
+                transport_id,
+                peer_name: peer.peer_name,
+            });
+        } catch (error) {
+            log.error(`Failed to connect peer transport for socket ID ${socket_id}`, {
+                transport_id,
+                error: error.message,
+                peer_name: peer.peer_name,
+            });
+            throw new Error(`Failed to connect transport for peer with socket ID ${socket_id}`);
+        }
+
+        return '[Room|connectPeerTransport] done';
+    }
+
+    // ####################################################
+    // PRODUCE
+    // ####################################################
+
+    async produce(socket_id, producerTransportId, rtpParameters, kind, type) {
+        if (!socket_id || !producerTransportId || !rtpParameters || !kind || !type) {
+            throw new Error('Missing required parameters for producing media');
+        }
+
+        if (!this.peers.has(socket_id)) {
+            throw new Error(`Peer with socket ID ${socket_id} not found in the room`);
+        }
+
+        const peer = this.getPeer(socket_id);
+        const { peer_name, peer_info } = peer;
+
+        if (!peer.hasTransport(producerTransportId)) {
+            throw new Error(`Transport with ID ${producerTransportId} not found for peer ${socket_id}`);
+        }
+
+        let peerProducer;
+        try {
+            peerProducer = await peer.createProducer(producerTransportId, rtpParameters, kind, type);
+        } catch (error) {
+            log.error(`Error creating producer for peer ${peer.peer_name} with socket ID ${socket_id}`, {
+                producerTransportId,
+                kind,
+                type,
+                error: error.message,
+            });
+            throw new Error(
+                `Failed to create producer for peer ${peer.peer_name} with transport ID ${producerTransportId}`
+            );
+        }
+
+        if (!peerProducer) {
+            throw new Error(
+                `Failed to create producer for peer ${peer_name} with ID ${producerTransportId} for peer ${socket_id}`
+            );
+        }
+
+        const { id } = peerProducer;
+
+        // Covers every way a producer can close (explicit, transport closed, peer left)
+        peerProducer.observer.once('close', () => {
+            this.clearVideoTextAnnotations(id);
+            this.clearVideoDrawingAnnotations(id);
+        });
+
+        const producerTransport = peer.getTransport(producerTransportId);
+
+        if (!producerTransport) {
+            throw new Error(`Producer transport with ID ${producerTransportId} not found for peer ${peer_name}`);
+        }
+
+        this.broadCast(socket_id, 'newProducers', [
+            {
+                producer_id: id,
+                producer_socket_id: socket_id,
+                peer_name: peer_name,
+                peer_info: peer_info,
+                type: type,
+            },
+        ]);
+
+        log.debug('Producer created successfully', {
+            producerTransportId,
+            producer_id: id,
+            peer_name: peer.peer_name,
+            kind,
+            type,
+            paused: peerProducer.paused,
+            appData: peerProducer.appData,
+            transport_state: `ICE:${producerTransport.iceState}, DTLS:${producerTransport.dtlsState}`,
+            codecs: rtpParameters.codecs?.map((c) => c.mimeType) || [],
+        });
+
+        return id;
+    }
+
+    closeProducer(socket_id, producer_id) {
+        if (!this.peers.has(socket_id)) return;
+
+        const peer = this.getPeer(socket_id);
+
+        try {
+            peer.closeProducer(producer_id);
+            this.clearVideoTextAnnotations(producer_id);
+            this.clearVideoDrawingAnnotations(producer_id);
+        } catch (error) {
+            log.error(`Error closing producer for peer ${socket_id}`, error);
+            throw new Error(`Error closing producer with ID ${producer_id} for peer ${socket_id}`);
+        }
+    }
+
+    // ####################################################
+    // CONSUME
+    // ####################################################
+
+    async consume(socket_id, consumer_transport_id, producerId, rtpCapabilities, type) {
+        if (!socket_id || !consumer_transport_id || !producerId || !rtpCapabilities || !type) {
+            throw new Error('Missing required parameters for consuming media');
+        }
+
+        if (!this.peers.has(socket_id)) {
+            throw new Error(`Peer with socket ID ${socket_id} not found in the room`);
+        }
+
+        const peer = this.getPeer(socket_id);
+        const { peer_name } = peer;
+
+        if (!this.getProducerById(producerId)) {
+            const error = new Error(`Producer with ID ${producerId} is no longer available`);
+            error.code = 'PRODUCER_NOT_FOUND';
+            error.retryable = false;
+            throw error;
+        }
+
+        const router = this.getPeerRouter(socket_id);
+
+        try {
+            await this.ensureProducerOnRouter(producerId, router);
+        } catch (error) {
+            const producerGone = !this.getProducerById(producerId);
+            log.warn('Failed to pipe producer to the consumer router', {
+                producerId,
+                peer_name,
+                producerGone,
+                error: error.message,
+            });
+            const pipeError = new Error(
+                producerGone
+                    ? `Producer with ID ${producerId} is no longer available`
+                    : `Failed to route producer ${producerId} to peer ${peer_name}`
+            );
+            if (producerGone) {
+                pipeError.code = 'PRODUCER_NOT_FOUND';
+                pipeError.retryable = false;
+            }
+            throw pipeError;
+        }
+
+        if (!router.canConsume({ producerId, rtpCapabilities })) {
+            throw new Error(
+                `Cannot consume producer for peer ${peer_name} with ID ${producerId} type ${type}, router validation failed`
+            );
+        }
+
+        let peerConsumer;
+        try {
+            peerConsumer = await peer.createConsumer(consumer_transport_id, producerId, rtpCapabilities);
+        } catch (error) {
+            const transportUnavailable = error.code === 'CONSUMER_TRANSPORT_NOT_FOUND';
+            const logDetails = {
+                consumer_transport_id,
+                producerId,
+                type,
+                error: error.message,
+            };
+
+            transportUnavailable
+                ? log.warn(
+                      `Skipped consumer for peer ${peer_name} because its transport is no longer available`,
+                      logDetails
+                  )
+                : log.error(`Error creating consumer for peer ${peer_name} with socket ID ${socket_id}`, logDetails);
+
+            const wrapped = new Error(
+                `Failed to create consumer for peer ${peer_name} with transport ID ${consumer_transport_id} and producer ID ${producerId} type ${type} for peer ${socket_id}`
+            );
+            wrapped.code = error.code;
+            wrapped.transient = error.transient;
+            wrapped.retryable = error.retryable;
+            throw wrapped;
+        }
+
+        if (!peerConsumer) {
+            throw new Error(
+                `Consumer creation failed for peer ${peer_name} with transport ID ${consumer_transport_id} and producer ID ${producerId}`
+            );
+        }
+
+        const consumerTransport = peer.getTransport(consumer_transport_id);
+
+        if (!consumerTransport) {
+            throw new Error(`Consumer transport with ID ${consumer_transport_id} not found for peer ${peer_name}`);
+        }
+
+        const { consumer, params, reused } = peerConsumer;
+        const { id, kind } = consumer;
+
+        if (!reused) {
+            consumer.once('producerclose', () => {
+                log.debug('Consumer closed due to "producerclose" event', {
+                    consumer_id: id,
+                    producer_id: producerId,
+                    peer_name,
+                });
+
+                peer.removeConsumer(id);
+
+                // Notify the client that the consumer is closed
+                this.send(socket_id, 'consumerClosed', {
+                    consumer_id: id,
+                    consumer_kind: kind,
+                });
+            });
+        }
+
+        log.debug('Consumer created successfully', {
+            consumer_transport_id,
+            consumer_id: id,
+            producer_id: producerId,
+            peer_name,
+            kind,
+            type,
+            paused: consumer.paused,
+            producerPaused: consumer.producerPaused,
+            reused,
+            transport_state: `ICE:${consumerTransport.iceState}, DTLS:${consumerTransport.dtlsState}`,
+        });
+
+        return params;
+    }
+
+    // ####################################################
+    // PRODUCE DATA (DataChannel)
+    // ####################################################
+
+    async produceData(socket_id, transportId, sctpStreamParameters, label, protocol, appData) {
+        if (!socket_id || !transportId || !sctpStreamParameters) {
+            throw new Error('Missing required parameters for producing data');
+        }
+
+        if (!this.peers.has(socket_id)) {
+            throw new Error(`Peer with socket ID ${socket_id} not found in the room`);
+        }
+
+        const peer = this.getPeer(socket_id);
+        const { peer_name, peer_info } = peer;
+
+        if (!peer.hasTransport(transportId)) {
+            throw new Error(`Transport with ID ${transportId} not found for peer ${socket_id}`);
+        }
+
+        let dataProducer;
+        try {
+            dataProducer = await peer.createDataProducer(transportId, sctpStreamParameters, label, protocol, appData);
+        } catch (error) {
+            log.error(`Error creating data producer for peer ${peer_name} with socket ID ${socket_id}`, {
+                transportId,
+                label,
+                error: error.message,
+            });
+            throw new Error(`Failed to create data producer for peer ${peer_name} with transport ID ${transportId}`);
+        }
+
+        if (!dataProducer) {
+            throw new Error(`Failed to create data producer for peer ${peer_name} with transport ID ${transportId}`);
+        }
+
+        // Notify other peers about the new data producer
+        this.broadCast(socket_id, 'newDataProducer', {
+            dataProducerId: dataProducer.id,
+            peer_id: socket_id,
+            peer_name: peer_name,
+            peer_info: peer_info,
+            label: dataProducer.label,
+        });
+
+        log.debug('DataProducer created successfully', {
+            transportId,
+            dataProducer_id: dataProducer.id,
+            peer_name,
+            label: dataProducer.label,
+        });
+
+        return dataProducer.id;
+    }
+
+    // ####################################################
+    // CONSUME DATA (DataChannel)
+    // ####################################################
+
+    async consumeData(socket_id, consumerTransportId, dataProducerId) {
+        if (!socket_id || !consumerTransportId || !dataProducerId) {
+            throw new Error('Missing required parameters for consuming data');
+        }
+
+        if (!this.peers.has(socket_id)) {
+            throw new Error(`Peer with socket ID ${socket_id} not found in the room`);
+        }
+
+        const peer = this.getPeer(socket_id);
+        const { peer_name } = peer;
+
+        try {
+            await this.ensureDataProducerOnRouter(dataProducerId, this.getPeerRouter(socket_id));
+        } catch (error) {
+            log.warn(`Skipped data consumer for peer ${peer_name}, data producer not routable`, {
+                dataProducerId,
+                error: error.message,
+            });
+            const pipeError = new Error(`Data producer ${dataProducerId} is no longer available: ${error.message}`);
+            pipeError.transient = true;
+            throw pipeError;
+        }
+
+        let result;
+        try {
+            result = await peer.createDataConsumer(consumerTransportId, dataProducerId);
+        } catch (error) {
+            const logDetails = {
+                consumerTransportId,
+                dataProducerId,
+                error: error.message,
+            };
+            // Transient races (producer/transport already closed) are expected, not real errors
+            error.transient
+                ? log.warn(`Skipped data consumer for peer ${peer_name} with socket ID ${socket_id}`, logDetails)
+                : log.error(
+                      `Error creating data consumer for peer ${peer_name} with socket ID ${socket_id}`,
+                      logDetails
+                  );
+
+            const wrapped = new Error(
+                `Failed to create data consumer for peer ${peer_name} with transport ID ${consumerTransportId}: ${error.message}`
+            );
+            wrapped.transient = error.transient;
+            throw wrapped;
+        }
+
+        if (!result) {
+            throw new Error(
+                `Data consumer creation failed for peer ${peer_name} with transport ID ${consumerTransportId}`
+            );
+        }
+
+        const { dataConsumer, params } = result;
+
+        dataConsumer.once('dataproducerclose', () => {
+            log.debug('DataConsumer closed due to "dataproducerclose" event', {
+                dataConsumer_id: dataConsumer.id,
+                dataProducer_id: dataProducerId,
+                peer_name,
+            });
+
+            peer.removeDataConsumer(dataConsumer.id);
+
+            this.send(socket_id, 'dataConsumerClosed', {
+                dataConsumer_id: dataConsumer.id,
+            });
+        });
+
+        const consumerTransport = peer.getTransport(consumerTransportId);
+
+        log.debug('DataConsumer created successfully', {
+            consumerTransportId,
+            dataConsumer_id: dataConsumer.id,
+            dataProducer_id: dataProducerId,
+            peer_name,
+            label: dataConsumer.label,
+            transport_state: consumerTransport
+                ? `ICE:${consumerTransport.iceState}, DTLS:${consumerTransport.dtlsState}`
+                : 'unknown',
+        });
+
+        return params;
+    }
+
+    // Get list of data producers for a peer (excluding their own)
+    getDataProducerListForPeer(socket_id) {
+        const dataProducerList = [];
+        this.peers.forEach((peer, peerId) => {
+            if (peerId === socket_id) return;
+            const { peer_name, peer_info } = peer;
+            peer.dataProducers.forEach((dataProducer) => {
+                dataProducerList.push({
+                    dataProducerId: dataProducer.id,
+                    peer_id: peerId,
+                    peer_name: peer_name,
+                    peer_info: peer_info,
+                    label: dataProducer.label,
+                });
+            });
+        });
+        return dataProducerList;
+    }
+
+    // ####################################################
+    // HANDLE BANNED PEERS
+    // ####################################################
+
+    // A verified account (authUser) is banned along with the client UUID, which the client can replace at will
+    addBannedPeer(uuid, authUser = null) {
+        const keys = [uuid];
+        if (authUser) keys.push(this._authBanKey(authUser));
+        for (const key of keys) {
+            if (key && !this.bannedPeers.has(key)) this.bannedPeers.set(key, Date.now());
+        }
+        log.debug('Added to the banned list', { uuid: uuid, authUser: authUser, banned: [...this.bannedPeers.keys()] });
+    }
+
+    isBanned(uuid, authUser = null) {
+        return this._isBannedKey(uuid) || (!!authUser && this._isBannedKey(this._authBanKey(authUser)));
+    }
+
+    _authBanKey(authUser) {
+        return `auth:${String(authUser).toLowerCase()}`;
+    }
+
+    _isBannedKey(key) {
+        if (!this.bannedPeers.has(key)) return false;
+        const bannedAt = this.bannedPeers.get(key);
+        const BAN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+        if (Date.now() - bannedAt > BAN_TTL_MS) {
+            this.bannedPeers.delete(key);
+            return false;
+        }
+        return true;
+    }
+
+    // ####################################################
+    // ROOM STATUS
+    // ####################################################
+
+    // GET
+    isBroadcasting() {
+        return this._isBroadcasting;
+    }
+    getPassword() {
+        return this._roomPassword;
+    }
+
+    // BOOL
+    isLocked() {
+        return this._isLocked;
+    }
+    isLobbyEnabled() {
+        return this._isLobbyEnabled;
+    }
+    isJoinLocked() {
+        return this._isJoinLocked;
+    }
+    isGlobalLobbyEnabled() {
+        return this.globalLobby;
+    }
+    isHostOnlyRecording() {
+        return this._hostOnlyRecording;
+    }
+
+    // SET
+    setIsBroadcasting(status) {
+        this._isBroadcasting = status;
+    }
+    setLocked(status, password) {
+        this._isLocked = status;
+        this._roomPassword = password;
+    }
+    setLobbyEnabled(status) {
+        this._isLobbyEnabled = status;
+    }
+    setJoinLocked(status) {
+        this._isJoinLocked = status;
+    }
+    setHostOnlyRecording(status) {
+        this._hostOnlyRecording = status;
+    }
+    getWhiteboardLock() {
+        return this._wbIsLock;
+    }
+    setWhiteboardLock(status) {
+        this._wbIsLock = Boolean(status);
+    }
+    getEditorLock() {
+        return this._editorIsLock;
+    }
+    setEditorLock(status) {
+        this._editorIsLock = Boolean(status);
+    }
+    getWhiteboardParticipantNames() {
+        return this._wbShowParticipantNames;
+    }
+    setWhiteboardParticipantNames(status) {
+        this._wbShowParticipantNames = Boolean(status);
+    }
+
+    // ####################################################
+    // SENDER
+    // ####################################################
+
+    // Peers waiting in the lobby are not admitted yet, so they never receive room-wide events
+    getAdmittedPeerIds() {
+        return Array.from(this.peers.entries())
+            .filter(([, peer]) => !peer.peer_lobby)
+            .map(([id]) => id);
+    }
+
+    broadCast(socket_id, action, data) {
+        for (let otherID of this.getAdmittedPeerIds().filter((id) => id !== socket_id)) {
+            this.send(otherID, action, data);
+        }
+    }
+
+    sendTo(socket_id, action, data) {
+        for (let peer_id of Array.from(this.peers.keys()).filter((id) => id === socket_id)) {
+            this.send(peer_id, action, data);
+        }
+    }
+
+    sendToAll(action, data) {
+        for (let peer_id of this.getAdmittedPeerIds()) {
+            this.send(peer_id, action, data);
+        }
+    }
+
+    send(socket_id, action, data) {
+        this.io.to(socket_id).emit(action, data);
+    }
+};

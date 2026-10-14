@@ -1,0 +1,505 @@
+/*
+ * سامانه سپهر — Custom Theme
+ * ============================================================
+ * Design system (ui-ux-pro-max, Trust & Authority + Accessible):
+ *   - Dark navy canvas with a single confident accent (sky/teal)
+ *   - Typography: Vazirmatn variable (100-900) for Persian, IBM Plex Sans fallback
+ *   - Motion: GSAP-driven, staggered, reduced-motion aware
+ *   - RTL-first layout
+ */
+
+:root {
+    /* Surfaces */
+    --sp-bg: #060b14;
+    --sp-bg-soft: #0a1220;
+    --sp-panel: #0e1728;
+    --sp-panel-2: #111d33;
+
+    /* Text */
+    --sp-text: #eef4fb;
+    --sp-text-dim: #9fb3cc;
+    --sp-text-faint: #64798f;
+
+    /* Accent (trust blue-teal) */
+    --sp-accent: #38bdf8;
+    --sp-accent-strong: #0ea5e9;
+    --sp-accent-ink: #04121f;
+    --sp-accent-soft: rgba(56, 189, 248, 0.12);
+    --sp-accent-glow: rgba(56, 189, 248, 0.35);
+
+    /* Lines & cards */
+    --sp-line: rgba(148, 183, 220, 0.14);
+    --sp-line-strong: rgba(148, 183, 220, 0.26);
+    --sp-card: rgba(14, 23, 40, 0.72);
+
+    /* Geometry */
+    --sp-radius: 20px;
+    --sp-radius-sm: 12px;
+
+    /* Motion */
+    --sp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --sp-fast: 0.22s;
+    --sp-med: 0.45s;
+}
+
+/* ============================ Base ============================ */
+
+html[dir='rtl'] body,
+body.custom-theme {
+    background:
+        radial-gradient(1100px 520px at 88% -12%, rgba(56, 189, 248, 0.08), transparent 62%),
+        radial-gradient(900px 460px at -8% 108%, rgba(14, 165, 233, 0.06), transparent 58%),
+        var(--sp-bg);
+    color: var(--sp-text);
+    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-feature-settings: 'ss01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+::selection {
+    background: var(--sp-accent-soft);
+    color: var(--sp-text);
+}
+
+/* Custom scrollbar (webkit) */
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-track {
+    background: var(--sp-bg-soft);
+}
+::-webkit-scrollbar-thumb {
+    background: #1d2c44;
+    border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #27395a;
+}
+
+/* ============================ Header ============================ */
+
+.custom-theme .site-header {
+    background: rgba(6, 11, 20, 0.72);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    border-bottom: 1px solid var(--sp-line);
+    transition: background var(--sp-med) var(--sp-ease);
+}
+
+.custom-theme .landing-nav-link {
+    color: var(--sp-text-dim);
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.4rem 0.2rem;
+    position: relative;
+    transition: color var(--sp-fast) ease;
+}
+.custom-theme .landing-nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    inset-inline-start: 0;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--sp-accent), transparent);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform var(--sp-med) var(--sp-ease);
+}
+.custom-theme .landing-nav-link:hover {
+    color: var(--sp-text);
+}
+.custom-theme .landing-nav-link:hover::after {
+    transform: scaleX(1);
+}
+
+.custom-theme .landing-nav-cta {
+    background: linear-gradient(135deg, var(--sp-accent), var(--sp-accent-strong));
+    color: var(--sp-accent-ink);
+    border-radius: 999px;
+    padding: 0.55rem 1.4rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    box-shadow: 0 4px 22px var(--sp-accent-glow);
+    transition:
+        transform var(--sp-fast) var(--sp-ease),
+        box-shadow var(--sp-fast) ease;
+}
+.custom-theme .landing-nav-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 34px var(--sp-accent-glow);
+    color: var(--sp-accent-ink);
+}
+
+/* Scroll progress */
+.scroll-progress {
+    position: fixed;
+    top: 0;
+    inset-inline-start: 0;
+    height: 2.5px;
+    width: 100%;
+    transform-origin: 0 50%;
+    transform: scaleX(0);
+    background: linear-gradient(90deg, var(--sp-accent), #7dd3fc);
+    z-index: 9999;
+    pointer-events: none;
+}
+
+/* ============================ Hero ============================ */
+
+.custom-theme .hero {
+    padding-top: clamp(4.5rem, 11vh, 7.5rem);
+    padding-bottom: 3.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Badge above the title */
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: var(--sp-accent-soft);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: #7dd3fc;
+    border-radius: 999px;
+    padding: 0.42rem 1.05rem;
+    font-size: 0.86rem;
+    font-weight: 500;
+    margin-bottom: 1.4rem;
+    backdrop-filter: blur(6px);
+}
+.hero-badge-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sp-accent);
+    box-shadow: 0 0 12px var(--sp-accent);
+    animation: sp-pulse 2.2s ease-in-out infinite;
+}
+@keyframes sp-pulse {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+.custom-theme .hero-title {
+    color: var(--sp-text);
+    line-height: 1.5;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+.custom-theme .hero-title h1 {
+    background: linear-gradient(125deg, #e8f6ff 20%, var(--sp-accent) 55%, #0284c7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.3em;
+    font-size: clamp(1.9rem, 4vw, 2.9rem);
+}
+
+.custom-theme .hero-paragraph {
+    color: var(--sp-text-dim);
+    font-size: clamp(1rem, 1.6vw, 1.15rem);
+    line-height: 2.1;
+    font-weight: 400;
+    max-width: 34em;
+}
+
+/* Trust chips under hero copy */
+.hero-trust {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.8rem;
+}
+.hero-trust-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--sp-text-dim);
+    font-size: 0.88rem;
+    font-weight: 500;
+    background: rgba(14, 23, 40, 0.6);
+    border: 1px solid var(--sp-line);
+    border-radius: 999px;
+    padding: 0.5rem 1rem;
+    backdrop-filter: blur(8px);
+    transition:
+        border-color var(--sp-fast) ease,
+        color var(--sp-fast) ease,
+        transform var(--sp-fast) var(--sp-ease);
+}
+.hero-trust-item i {
+    color: var(--sp-accent);
+    font-size: 0.85rem;
+}
+.hero-trust-item:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    color: var(--sp-text);
+    transform: translateY(-2px);
+}
+
+/* Floating orbs */
+.hero-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    pointer-events: none;
+    will-change: transform;
+}
+.hero-orb--1 {
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.45), transparent 70%);
+    top: -90px;
+    inset-inline-end: -70px;
+}
+.hero-orb--2 {
+    width: 280px;
+    height: 280px;
+    background: radial-gradient(circle, rgba(2, 132, 199, 0.4), transparent 70%);
+    bottom: -70px;
+    inset-inline-start: 8%;
+}
+
+/* Hero figure cubes */
+.custom-theme .hero-figure-box {
+    background: linear-gradient(145deg, rgba(56, 189, 248, 0.08), rgba(56, 189, 248, 0.02));
+    border: 1px solid var(--sp-line);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    box-shadow:
+        0 14px 44px rgba(2, 8, 20, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ============================ CTA / Join card ============================ */
+
+.custom-theme .cta-inner {
+    background: linear-gradient(170deg, var(--sp-panel), var(--sp-bg-soft));
+    border: 1px solid var(--sp-line);
+    border-radius: var(--sp-radius);
+    box-shadow:
+        0 30px 80px rgba(1, 5, 14, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    padding: clamp(2.2rem, 5.5vw, 4rem);
+    position: relative;
+    overflow: hidden;
+}
+/* subtle top sheen */
+.custom-theme .cta-inner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    inset-inline: 15%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.5), transparent);
+}
+
+.custom-theme .section-title {
+    color: var(--sp-text);
+    font-weight: 700;
+    line-height: 1.7;
+}
+
+.cta-hint {
+    color: var(--sp-text-dim);
+    font-size: 0.98rem;
+    line-height: 2;
+    margin: 0.6rem 0 1.6rem;
+    max-width: 32em;
+}
+
+.custom-theme .form-input {
+    background: rgba(6, 11, 20, 0.65);
+    border: 1px solid var(--sp-line-strong);
+    color: var(--sp-text);
+    border-radius: var(--sp-radius-sm);
+    font-family: inherit;
+    font-size: 1.02rem;
+    padding: 0.85rem 1.1rem;
+    transition:
+        border-color var(--sp-fast) ease,
+        box-shadow var(--sp-fast) ease,
+        background var(--sp-fast) ease;
+}
+.custom-theme .form-input::placeholder {
+    color: var(--sp-text-faint);
+}
+.custom-theme .form-input:focus {
+    border-color: var(--sp-accent);
+    background: rgba(6, 11, 20, 0.85);
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.14);
+    outline: none;
+}
+
+.custom-theme .button-primary {
+    background: linear-gradient(135deg, var(--sp-accent), var(--sp-accent-strong));
+    color: var(--sp-accent-ink);
+    border-radius: var(--sp-radius-sm);
+    font-weight: 800;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    box-shadow: 0 6px 26px var(--sp-accent-glow);
+    transition:
+        transform var(--sp-fast) var(--sp-ease),
+        box-shadow var(--sp-fast) ease,
+        filter var(--sp-fast) ease;
+}
+.custom-theme .button-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 38px var(--sp-accent-glow);
+    filter: brightness(1.07);
+}
+.custom-theme .button-primary:active {
+    transform: translateY(0) scale(0.985);
+}
+
+.custom-theme .button-secondary {
+    background: rgba(56, 189, 248, 0.06);
+    border: 1px solid var(--sp-line-strong);
+    color: var(--sp-text);
+    border-radius: var(--sp-radius-sm);
+    font-family: inherit;
+    font-weight: 600;
+    transition:
+        border-color var(--sp-fast) ease,
+        background var(--sp-fast) ease,
+        transform var(--sp-fast) var(--sp-ease);
+}
+.custom-theme .button-secondary:hover {
+    border-color: rgba(56, 189, 248, 0.45);
+    background: rgba(56, 189, 248, 0.1);
+    transform: translateY(-1px);
+    color: var(--sp-text);
+}
+
+/* Dice / regenerate button */
+.custom-theme #genRoomButton {
+    transition: transform var(--sp-fast) cubic-bezier(0.34, 1.56, 0.64, 1), color var(--sp-fast) ease;
+}
+.custom-theme #genRoomButton:hover {
+    transform: rotate(-18deg) scale(1.14);
+    color: var(--sp-accent);
+}
+
+/* Recent room pill */
+.custom-theme .last-room {
+    color: var(--sp-text-dim);
+}
+.custom-theme .last-room a {
+    color: #7dd3fc;
+    transition: color var(--sp-fast) ease;
+}
+.custom-theme .last-room a:hover {
+    color: var(--sp-accent);
+}
+
+/* ============================ Sections / Footer ============================ */
+
+.custom-theme .section {
+    position: relative;
+}
+
+.custom-theme .site-footer {
+    border-top: 1px solid var(--sp-line);
+    background: linear-gradient(180deg, transparent, rgba(10, 18, 32, 0.7));
+    color: var(--sp-text-dim);
+    padding: 2.4rem 0;
+}
+.custom-theme .site-footer .footer-brand img {
+    filter: brightness(0) invert(1) opacity(0.85);
+    transition: filter var(--sp-fast) ease;
+}
+.custom-theme .site-footer .footer-brand img:hover {
+    filter: brightness(0) invert(1) opacity(1);
+}
+.custom-theme .footer-links a {
+    color: var(--sp-text-dim);
+    font-size: 0.92rem;
+    transition: color var(--sp-fast) ease;
+}
+.custom-theme .footer-links a:hover {
+    color: var(--sp-accent);
+}
+.custom-theme .footer-copyright {
+    font-size: 0.88rem;
+    color: var(--sp-text-faint);
+}
+.custom-theme .footer-version {
+    color: var(--sp-text-faint);
+    font-size: 0.8rem;
+}
+
+/* ============================ GSAP hooks ============================ */
+
+html.js .gs-reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    will-change: opacity, transform;
+}
+
+html.js .gs-fade {
+    opacity: 0;
+    will-change: opacity, transform;
+}
+
+/* Back to top */
+.custom-theme .back-to-top {
+    background: var(--sp-panel);
+    border: 1px solid var(--sp-line-strong);
+    color: var(--sp-accent);
+    border-radius: 12px;
+    transition:
+        transform var(--sp-fast) var(--sp-ease),
+        border-color var(--sp-fast) ease;
+}
+.custom-theme .back-to-top:hover {
+    transform: translateY(-3px);
+    border-color: rgba(56, 189, 248, 0.5);
+}
+
+/* ============================ Focus & a11y ============================ */
+
+.custom-theme a:focus-visible,
+.custom-theme button:focus-visible,
+.custom-theme input:focus-visible {
+    outline: 2px solid var(--sp-accent);
+    outline-offset: 3px;
+    border-radius: 6px;
+}
+
+/* ============================ Reduced motion ============================ */
+
+@media (prefers-reduced-motion: reduce) {
+    html.js .gs-reveal,
+    html.js .gs-fade {
+        opacity: 1;
+        transform: none;
+    }
+    .hero-orb,
+    .scroll-progress,
+    .hero-badge-dot {
+        display: none;
+    }
+    .custom-theme .landing-nav-cta:hover,
+    .custom-theme .button-primary:hover,
+    .custom-theme .hero-trust-item:hover,
+    .custom-theme #genRoomButton:hover,
+    .custom-theme .back-to-top:hover {
+        transform: none;
+    }
+    .hero-badge-dot {
+        animation: none;
+    }
+}

@@ -1,0 +1,690 @@
+'use strict';
+
+const assert = require('assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
+
+const ROOT = path.join(__dirname, '..');
+
+// Helpers of the engine used by the panel (filter presets, CSS filters)
+const ENGINE_HELPERS = ['utils', 'renderer', 'effects-manager', 'effects/beauty'];
+
+function createEngine() {
+    const listeners = new Map();
+    const effects = [
+        { id: 'sunglasses', label: 'Sunglasses', category: 'face', thumbnail: 'sunglasses.svg' },
+        { id: 'glasses', label: 'Glasses', category: 'face', thumbnail: 'glasses.svg' },
+        { id: 'avatar-cat', label: 'Cat', category: 'avatar', thumbnail: 'cat.svg' },
+        { id: 'avatar-bear', label: 'Bear', category: 'avatar', thumbnail: 'bear.svg' },
+        { id: 'avatar3d-man', label: 'Man', category: 'avatar3d', thumbnail: 'man.webp', is3D: true },
+        { id: 'avatar3d-raccoon', label: 'Raccoon', category: 'avatar3d', thumbnail: 'raccoon.webp', is3D: true },
+    ];
+    const state = {
+        effect: null,
+        filterPreset: 'none',
+        filters: {},
+        adjustments: { touchUp: 0, lowLight: 0 },
+        running: true,
+        renderer: 'webgl2',
+        capabilities: { filters: true, smoothing: true, webgl: true },
+        faceTracking: 'ready',
+        faceDetected: true,
+        slow: false,
+    };
+    const engine = {
+        running: true,
+        state,
+        calls: [],
+        on(event, handler) {
+            listeners.set(event, handler);
+            return () => listeners.delete(event);
+        },
+        emit(event, payload) {
+            listeners.get(event)?.(payload);
+        },
+        getState: () => ({ ...state, filters: { ...state.filters }, adjustments: { ...state.adjustments } }),
+        getEffects: () => effects,
+        getFilterPresets: () => engine.window.SepehrVFX.getFilterPresets(),
+        async setEffect(id) {
+            engine.calls.push(['setEffect', id]);
+            state.effect = id || null;
+        },
+        setFilterPreset(id) {
+            state.filterPreset = id;
+            state.filters = { ...engine.window.SepehrVFX.getFilterPreset(id).filters };
+        },
+        resetFilters() {
+            engine.setFilterPreset('none');
+        },
+        setFilters(filters) {
+            state.filters = { ...state.filters, ...filters };
+            state.filterPreset = null;
+        },
+        setAdjustments(adjustments) {
+            Object.assign(state.adjustments, adjustments);
+        },
+        async clearAll() {
+            engine.calls.push(['clearAll']);
+            engine.resetFilters();
+            state.adjustments = { touchUp: 0, lowLight: 0 };
+            state.effect = null;
+        },
+    };
+    return engine;
+}
+
+function createBackground() {
+    const background = {
+        selection: { blurLevel: null, imageUrl: null, transparent: null },
+        custom: ['data:image/png;base64,custom'],
+        applied: [],
+        removed: [],
+        isAvailable: () => true,
+        supportsTransparent: () => true,
+        isValidImageUrl: (url) => /\.(png|jpe?g|gif|webp)$/i.test(url),
+        getSelection: () => ({ ...background.selection }),
+        getPresetImages: () => ['bg-1.jpg', 'bg-2.jpg'],
+        getCustomImages: () => background.custom,
+        async apply(blurLevel, imageUrl, transparent) {
+            background.applied.push([blurLevel, imageUrl, transparent]);
+            background.selection = {
+                blurLevel: blurLevel || null,
+                imageUrl: blurLevel ? null : imageUrl || null,
+                transparent: !blurLevel && !imageUrl && transparent ? true : null,
+            };
+        },
+        async upload(files) {
+            const images = files.map((file, i) => `data:image/png;base64,upload${i}`);
+            background.custom.push(...images);
+            return images;
+        },
+        async removeCustom(image) {
+            background.removed.push(image);
+            background.custom = background.custom.filter((item) => item !== image);
+        },
+    };
+    return background;
+}
+
+describe('Visual effects panel', () => {
+    let window;
+    let document;
+    let engine;
+    let background;
+    let panel;
+    let container;
+    let changes;
+    let indicator;
+
+    beforeEach(() => {
+        const dom = new JSDOM('<!doctype html><body><div id="panel"></div><div id="chips"></div></body>', {
+            runScripts: 'outside-only',
+            pretendToBeVisual: true,
+            url: 'https://sepehr.test/join/room',
+        });
+        window = dom.window;
+        document = window.document;
+        for (const file of ENGINE_HELPERS) {
+            window.eval(fs.readFileSync(path.join(ROOT, `public/video-effects/${file}.js`), 'utf8'));
+        }
+        window.eval(
+            `${fs.readFileSync(path.join(ROOT, 'public/js/VideoEffectsPanel.js'), 'utf8')}\nwindow.VideoEffectsPanel = VideoEffectsPanel;`
+        );
+        engine = createEngine();
+        engine.window = window;
+        background = createBackground();
+        changes = 0;
+        indicator = null;
+        panel = new window.VideoEffectsPanel(engine, {
+            onChange: async () => {
+                changes++;
+            },
+            onStateChange: (active) => {
+                indicator = active;
+            },
+            background,
+            camera: { isOn: () => true, turnOn: () => {} },
+        });
+        container = document.getElementById('panel');
+        panel.mount(container);
+    });
+
+    afterEach(() => {
+        panel.destroy();
+        window.close();
+    });
+
+    const $ = (selector) => container.querySelector(selector);
+    const $$ = (selector) => [...container.querySelectorAll(selector)];
+    const visiblePanel = () => $$('.vfx-tabpanel').find((el) => !el.classList.contains('hidden'));
+    const chipLabels = () => $$('.vfx-active .vfx-chip-open').map((chip) => chip.textContent.trim());
+
+    it('shows one tab at a time: Background, Effects, Avatars, 3D Avatars, Filters', () => {
+        const tabs = $$('.vfx-tab');
+        assert.deepEqual(
+            tabs.map((tab) => tab.dataset.tab),
+            ['background', 'face', 'avatar', 'avatar3d', 'filters']
+        );
+        assert.deepEqual(
+            tabs.map((tab) => tab.getAttribute('aria-label')),
+            ['Background', 'Effects', 'Avatars', '3D Avatars', 'Filters']
+        );
+        assert.equal($$('.vfx-tabpanel').filter((el) => !el.classList.contains('hidden')).length, 1);
+        assert.equal($('.vfx-tab.active').getAttribute('aria-selected'), 'true');
+
+        $('.vfx-tab[data-tab="avatar"]').click();
+        assert.equal(visiblePanel().getAttribute('id'), $('.vfx-tab[data-tab="avatar"]').getAttribute('aria-controls'));
+        assert.deepEqual(
+            [...visiblePanel().querySelectorAll('.vfx-card')].map((card) => card.getAttribute('aria-label')),
+            ['Cat', 'Bear']
+        );
+    });
+
+    it('hides the Background tab when backgrounds are not available', () => {
+        background.isAvailable = () => false;
+        panel.mount(container);
+        assert.deepEqual(
+            $$('.vfx-tab').map((tab) => tab.dataset.tab),
+            ['face', 'avatar', 'avatar3d', 'filters']
+        );
+    });
+
+    it('selects an effect, marks its tab, and removes it when chosen again', async () => {
+        panel.openTab('avatar');
+        visiblePanel().querySelector('.vfx-card[aria-label="Cat"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(engine.state.effect, 'avatar-cat');
+        assert.equal($('.vfx-card[aria-label="Cat"]').getAttribute('aria-pressed'), 'true');
+        assert.ok($('.vfx-tab[data-tab="avatar"]').classList.contains('vfx-tab-on'));
+        assert.deepEqual(chipLabels(), ['Cat']);
+        assert.equal(indicator, true);
+
+        // Choosing a face effect replaces the avatar (one effect at a time)
+        $('.vfx-card[aria-label="Sunglasses"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(engine.state.effect, 'sunglasses');
+        assert.ok(!$('.vfx-tab[data-tab="avatar"]').classList.contains('vfx-tab-on'));
+
+        $('.vfx-card[aria-label="Sunglasses"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(engine.state.effect, null);
+        assert.equal($('.vfx-active-none').textContent, 'No effects on');
+        assert.equal(indicator, false);
+        assert.ok(changes >= 3);
+    });
+
+    it('lists the 3D avatars in their own tab, one effect at a time with the cartoon avatars', async () => {
+        panel.openTab('avatar3d');
+        const cards = [...visiblePanel().querySelectorAll('.vfx-card')];
+        assert.deepEqual(
+            cards.map((card) => card.getAttribute('aria-label')),
+            ['Man', 'Raccoon']
+        );
+        assert.equal(visiblePanel().querySelector('.vfx-badge'), null, 'no "3D" badge inside the 3D tab');
+
+        cards[1].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(engine.state.effect, 'avatar3d-raccoon');
+        assert.ok($('.vfx-tab[data-tab="avatar3d"]').classList.contains('vfx-tab-on'));
+        assert.ok(!$('.vfx-tab[data-tab="avatar"]').classList.contains('vfx-tab-on'));
+        assert.deepEqual(chipLabels(), ['Raccoon']);
+
+        // A cartoon avatar replaces it
+        await panel.selectEffect('avatar-cat');
+        assert.equal(engine.state.effect, 'avatar-cat');
+        assert.ok(!$('.vfx-tab[data-tab="avatar3d"]').classList.contains('vfx-tab-on'));
+        assert.ok($('.vfx-tab[data-tab="avatar"]').classList.contains('vfx-tab-on'));
+
+        // Its chip opens the 3D Avatars tab
+        await panel.selectEffect('avatar3d-man');
+        panel.openTab('filters');
+        $('.vfx-active .vfx-chip-open').click();
+        assert.equal($('.vfx-tab.active').dataset.tab, 'avatar3d');
+    });
+
+    it('lists everything that is on as removable chips with "Turn off all"', async () => {
+        await panel.selectBackground('blur-10');
+        await panel.selectEffect('glasses');
+        await panel.selectPreset('warm');
+        await panel.setAdjustment('lowLight', 0.5);
+        assert.deepEqual(chipLabels(), ['Blur', 'Glasses', 'Warm', 'Low light']);
+        assert.ok($('.vfx-turn-off-all'));
+
+        // Remove one item from its chip
+        $$('.vfx-active .vfx-chip')[2].querySelector('.vfx-chip-remove').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(engine.state.filterPreset, 'none');
+        assert.deepEqual(chipLabels(), ['Blur', 'Glasses', 'Low light']);
+
+        $('.vfx-turn-off-all').click();
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        assert.deepEqual(engine.calls.at(-1), ['clearAll']);
+        assert.deepEqual(background.applied.at(-1), [null, null, null]);
+        assert.equal(panel.isAnythingActive(), false);
+        assert.equal($('.vfx-turn-off-all'), null);
+    });
+
+    it('opens the tab of a chip when it is clicked', async () => {
+        await panel.selectEffect('avatar-bear');
+        panel.openTab('filters');
+        $('.vfx-active .vfx-chip-open').click();
+        assert.equal($('.vfx-tab.active').dataset.tab, 'avatar');
+    });
+
+    it('shows a Custom filter state after manual adjustments', async () => {
+        panel.openTab('filters');
+        assert.ok($('.vfx-card-custom').classList.contains('hidden'));
+        const brightness = $$('details.vfx-advanced .vfx-range')[0];
+        brightness.value = '1.2';
+        brightness.dispatchEvent(new window.Event('input'));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(engine.state.filterPreset, null);
+        assert.ok(!$('.vfx-card-custom').classList.contains('hidden'));
+        assert.equal($('.vfx-card-custom').getAttribute('aria-pressed'), 'true');
+        assert.deepEqual(chipLabels(), ['Custom']);
+    });
+
+    it('toggles presets and keeps friendly adjustments separate', async () => {
+        panel.openTab('filters');
+        $('.vfx-card[aria-label="Sepia"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(engine.state.filterPreset, 'sepia');
+        const touchUp = $$('.vfx-tabpanel:not(.hidden) .vfx-sliders')[0].querySelector('.vfx-range');
+        touchUp.value = '0.4';
+        touchUp.dispatchEvent(new window.Event('input'));
+        assert.equal(engine.state.adjustments.touchUp, 0.4);
+        assert.equal(engine.state.filterPreset, 'sepia', 'touch up does not turn the preset into Custom');
+        $('.vfx-card[aria-label="Sepia"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(engine.state.filterPreset, 'none');
+    });
+
+    it('keeps one tab stop per grid and moves with the arrow keys', () => {
+        panel.openTab('background');
+        const grid = visiblePanel().querySelector('.vfx-grid');
+        const cards = [...grid.querySelectorAll('.vfx-card')];
+        assert.equal(cards.filter((card) => card.getAttribute('tabindex') === '0').length, 1);
+        cards[0].focus();
+        grid.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        assert.equal(document.activeElement, cards[1]);
+        grid.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+        assert.equal(document.activeElement, cards.at(-1));
+        assert.equal(cards.filter((card) => card.getAttribute('tabindex') === '0').length, 1);
+
+        const tablist = $('.vfx-tabs');
+        tablist.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        assert.equal($('.vfx-tab.active').dataset.tab, 'face');
+        assert.equal(document.activeElement, $('.vfx-tab[data-tab="face"]'));
+    });
+
+    it('manages backgrounds: toggle, uploads, deleting custom images', async () => {
+        panel.openTab('background');
+        $('.vfx-card[aria-label="Strong blur"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.deepEqual(background.applied.at(-1), [20, null, null]);
+        assert.ok($('.vfx-tab[data-tab="background"]').classList.contains('vfx-tab-on'));
+        $('.vfx-card[aria-label="Strong blur"]').click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.deepEqual(background.applied.at(-1), [null, null, null], 'chosen again: removed');
+
+        // Only uploaded images can be deleted
+        assert.equal($$('.vfx-card-remove').length, 1);
+        await panel.uploadBackground([{ name: 'a.png' }]);
+        assert.equal(background.selection.imageUrl, 'data:image/png;base64,upload0', 'upload is applied');
+        assert.equal($$('.vfx-card-remove').length, 2);
+        await panel.removeCustomBackground('data:image/png;base64,upload0');
+        assert.deepEqual(background.removed, ['data:image/png;base64,upload0']);
+        assert.equal(background.selection.imageUrl, null, 'deleting the applied image removes it');
+        assert.equal($$('.vfx-card-remove').length, 1);
+    });
+
+    it('validates and loads background links', async () => {
+        assert.equal(await panel.addBackgroundFromUrl('not a link'), false);
+        assert.ok(!$('.vfx-error').classList.contains('hidden'));
+        window.fetch = async () => ({
+            ok: true,
+            blob: async () => new window.Blob(['x'], { type: 'image/png' }),
+        });
+        assert.equal(await panel.addBackgroundFromUrl('https://example.com/bg.png'), true);
+        assert.ok($('.vfx-error').classList.contains('hidden'));
+        assert.equal(background.selection.imageUrl, 'data:image/png;base64,upload0');
+
+        window.fetch = async () => {
+            throw new TypeError('Failed to fetch');
+        };
+        const warn = window.console.warn;
+        window.console.warn = () => {};
+        try {
+            assert.equal(await panel.addBackgroundFromUrl('https://blocked.example.com/bg.png'), false);
+        } finally {
+            window.console.warn = warn;
+        }
+        assert.match($('.vfx-error').textContent, /Upload/);
+    });
+
+    it('explains unavailable face effects, the camera being off, and slow devices', () => {
+        engine.state.faceTracking = 'error';
+        panel.openTab('face');
+        panel.sync();
+        assert.ok($$('.vfx-tabpanel:not(.hidden) .vfx-card').every((card) => card.disabled));
+        assert.match($('.vfx-unavailable:not(.hidden)').textContent, /Face tracking/);
+
+        engine.state.faceTracking = 'ready';
+        engine.state.slow = true;
+        panel.sync();
+        assert.equal($('.vfx-status').dataset.level, 'warning');
+
+        let turnedOn = false;
+        panel.camera = { isOn: () => false, turnOn: () => (turnedOn = true) };
+        panel.sync();
+        assert.match($('.vfx-status').textContent, /camera is off/);
+        $('.vfx-status button').click();
+        assert.equal(turnedOn, true);
+    });
+
+    it('disables Touch up without WebGL', () => {
+        engine.state.capabilities = { filters: true, smoothing: false, webgl: false };
+        panel.openTab('filters');
+        const touchUp = $$('.vfx-tabpanel:not(.hidden) .vfx-sliders')[0].querySelector('.vfx-range');
+        assert.equal(touchUp.disabled, true);
+    });
+
+    it('shows standalone chips only while something is on', async () => {
+        const chips = document.getElementById('chips');
+        let opened = null;
+        panel.mountActiveBar(chips, { onOpen: (tab) => (opened = tab) });
+        assert.ok(chips.classList.contains('hidden'));
+        await panel.selectEffect('avatar-cat');
+        assert.ok(!chips.classList.contains('hidden'));
+        chips.querySelector('.vfx-chip-open').click();
+        assert.equal(opened, 'avatar');
+    });
+
+    it('saves and restores the selection, including adjustments', async () => {
+        await panel.selectEffect('glasses');
+        await panel.setAdjustment('touchUp', 0.3);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const saved = JSON.parse(window.localStorage.getItem('videoEffectsSettings'));
+        assert.equal(saved.effect, 'glasses');
+        assert.equal(saved.adjustments.touchUp, 0.3);
+
+        const restored = createEngine();
+        restored.window = window;
+        const other = new window.VideoEffectsPanel(restored, { background });
+        await other.restoreSettings();
+        assert.equal(restored.state.effect, 'glasses');
+        assert.equal(restored.state.adjustments.touchUp, 0.3);
+        other.destroy();
+    });
+    describe('custom 3D avatars', () => {
+        const GLB = 'https://models.example.com/my-avatar.glb';
+        const avatarTab = () => $$('.vfx-tabpanel')[3];
+        const avatarCards = () => avatarTab().querySelectorAll('.vfx-grid .vfx-card');
+        const effectOf = (id) => new window.SepehrVFX.EffectsManager().getEffect(id);
+        const registered = () =>
+            new window.SepehrVFX.EffectsManager().list().filter((effect) => effect.id.startsWith('avatar3d-custom-'));
+
+        beforeEach(() => {
+            const base = engine.getEffects();
+            // The panel lists what the engine registry holds, like the real engine does
+            engine.getEffects = () => [...base, ...registered()];
+        });
+
+        it('adds an avatar from a .glb link: fitted model, own card, size slider, saved for next time', async () => {
+            panel.openTab('avatar3d');
+            assert.ok($('.vfx-url-row'), 'the tab has the link field');
+            assert.equal(avatarCards().length, 2);
+            assert.ok(avatarTab().querySelector('.vfx-slider.hidden'), 'no size slider before an avatar is chosen');
+
+            assert.equal(await panel.addCustomAvatarFromUrl('avatar3d', GLB), true);
+            const [{ id }] = registered();
+            const effect = effectOf(id);
+            assert.equal(effect.model.fit, true);
+            assert.equal(effect.model.avatar, true);
+            assert.equal(effect.model.asset, GLB);
+            assert.equal(engine.state.effect, id);
+            assert.deepEqual(chipLabels(), ['my avatar']);
+            assert.equal(avatarCards().length, 3);
+            assert.equal($(`.vfx-card[aria-label="my avatar"]`).getAttribute('aria-pressed'), 'true');
+            assert.ok(avatarTab().querySelector('.vfx-card-wrap .vfx-card-remove'), 'custom avatars can be deleted');
+            assert.ok(
+                !avatarTab().querySelector('.vfx-slider').classList.contains('hidden'),
+                'the size slider shows up'
+            );
+            const saved = JSON.parse(window.localStorage.getItem('videoEffectsCustomAvatars'));
+            assert.deepEqual(saved, [{ id, label: 'my avatar', url: GLB, scale: 1 }]);
+        });
+
+        it('resizes the avatar that is on and remembers it', async () => {
+            await panel.addCustomAvatarFromUrl('avatar3d', GLB);
+            const [{ id }] = registered();
+            await panel.setCustomAvatarSize('1.35');
+            assert.equal(effectOf(id).model.scale, 1.35);
+            assert.equal(JSON.parse(window.localStorage.getItem('videoEffectsCustomAvatars'))[0].scale, 1.35);
+            assert.equal(engine.calls.filter(([call, effect]) => call === 'setEffect' && effect === id).length, 2);
+            assert.equal(avatarTab().querySelector('.vfx-slider-value').textContent, '135%');
+        });
+
+        it('rejects links that are not http(s) and files that are not a small .glb', async () => {
+            assert.equal(await panel.addCustomAvatarFromUrl('avatar3d', 'ftp://example.com/a.glb'), false);
+            assert.match(avatarTab().querySelector('.vfx-error:not(.hidden)').textContent, /\.glb avatar/);
+            assert.equal(await panel.addCustomAvatarFromUrl('avatar3d', '   '), false);
+            assert.equal(await panel.uploadCustomAvatar('avatar3d', [{ name: 'photo.png', size: 10 }]), false);
+            assert.match($$('.vfx-error:not(.hidden)')[0].textContent, /Choose a \.glb file/);
+            assert.equal(
+                await panel.uploadCustomAvatar('avatar3d', [{ name: 'big.glb', size: 51 * 1024 * 1024 }]),
+                false
+            );
+            assert.match($$('.vfx-error:not(.hidden)')[0].textContent, /too large/);
+            assert.equal(registered().length, 0);
+            assert.equal(engine.calls.filter(([call]) => call === 'setEffect').length, 0);
+        });
+
+        it('forgets an avatar that cannot be loaded and keeps the previous effect', async () => {
+            await panel.selectEffect('glasses');
+            const warn = console.warn;
+            console.warn = () => {};
+            engine.setEffect = async () => {
+                throw Object.assign(new Error('no face rig'), { code: 'ASSET_INVALID' });
+            };
+            assert.equal(await panel.addCustomAvatarFromUrl('avatar3d', GLB), false);
+            assert.equal(registered().length, 0);
+            assert.equal(engine.state.effect, 'glasses');
+            assert.match($('.vfx-error:not(.hidden)').textContent, /no face rig/);
+            assert.equal(window.localStorage.getItem('videoEffectsCustomAvatars'), '[]');
+
+            engine.setEffect = async () => {
+                throw new Error('network');
+            };
+            await panel.addCustomAvatarFromUrl('avatar3d', GLB);
+            console.warn = warn;
+            assert.match($('.vfx-error:not(.hidden)').textContent, /can’t be loaded/);
+            assert.ok(!panel.avatarBusy);
+        });
+
+        it('deletes an avatar, turning it off first when it is on', async () => {
+            await panel.addCustomAvatarFromUrl('avatar3d', GLB);
+            avatarTab().querySelector('.vfx-card-remove').click();
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            assert.equal(registered().length, 0);
+            assert.equal(engine.state.effect, null);
+            assert.equal(avatarCards().length, 2);
+            assert.equal(window.localStorage.getItem('videoEffectsCustomAvatars'), '[]');
+            assert.ok(avatarTab().querySelector('.vfx-slider').classList.contains('hidden'));
+        });
+
+        it('restores avatars from links, ignoring anything else that was stored', () => {
+            window.localStorage.setItem(
+                'videoEffectsCustomAvatars',
+                JSON.stringify([
+                    { id: 'avatar3d-custom-a', label: 'Saved', url: GLB, scale: 9 },
+                    { id: 'avatar3d-custom-b', label: 'Blob', url: 'blob:https://sepehr.test/x', scale: 1 },
+                    { id: 'glasses', label: 'Hijack', url: GLB, scale: 1 },
+                    null,
+                ])
+            );
+            const other = new window.VideoEffectsPanel(createEngine(), { background });
+            assert.deepEqual([...registered().map(({ id, label }) => `${id}:${label}`)], ['avatar3d-custom-a:Saved']);
+            // The size stays in range
+            assert.equal(effectOf('avatar3d-custom-a').model.scale, 1.6);
+            other.destroy();
+        });
+    });
+
+    describe('custom picture avatars', () => {
+        const PICTURE = 'https://images.example.com/my-face.png';
+        const avatarTab = () => $$('.vfx-tabpanel')[2];
+        const avatarCards = () => avatarTab().querySelectorAll('.vfx-grid .vfx-card');
+        const effectOf = (id) => new window.SepehrVFX.EffectsManager().getEffect(id);
+        const registered = () =>
+            new window.SepehrVFX.EffectsManager().list().filter((effect) => effect.id.startsWith('avatar-custom-'));
+
+        beforeEach(() => {
+            const base = engine.getEffects();
+            engine.getEffects = () => [...base, ...registered()];
+        });
+
+        it('adds a picture from a link: one layer on the face, own card, size slider, saved for next time', async () => {
+            panel.openTab('avatar');
+            assert.ok(avatarTab().querySelector('.vfx-url-row'), 'the Avatars tab has the link field');
+            assert.equal(avatarCards().length, 2);
+
+            assert.equal(await panel.addCustomAvatarFromUrl('avatar', PICTURE), true);
+            const [{ id }] = registered();
+            const effect = effectOf(id);
+            assert.equal(effect.category, 'avatar');
+            assert.equal(effect.model, null);
+            assert.equal(effect.layers.length, 1);
+            assert.equal(effect.layers[0].asset, PICTURE);
+            assert.equal(effect.layers[0].width, 3);
+            assert.equal(engine.state.effect, id);
+            assert.equal(avatarCards().length, 3);
+            assert.ok(avatarTab().querySelector('.vfx-card-wrap .vfx-card-remove'), 'custom pictures can be deleted');
+            assert.ok(!avatarTab().querySelector('.vfx-slider').classList.contains('hidden'));
+            assert.deepEqual(JSON.parse(window.localStorage.getItem('videoEffectsCustomAvatars')), [
+                { id, label: 'my face', url: PICTURE, scale: 1 },
+            ]);
+
+            await panel.setCustomAvatarSize('1.5');
+            assert.equal(effectOf(id).layers[0].width, 4.5);
+        });
+
+        it('keeps the picture and 3D avatar limits and controls apart', async () => {
+            panel.openTab('avatar');
+            await panel.addCustomAvatarFromUrl('avatar', PICTURE);
+            // The 3D tab shows no size slider for a picture
+            assert.ok($$('.vfx-tabpanel')[3].querySelector('.vfx-slider').classList.contains('hidden'));
+            assert.equal(panel.customAvatarCount('avatar'), 1);
+            assert.equal(panel.customAvatarCount('avatar3d'), 0);
+        });
+
+        it('rejects links that are not http(s) and files that are not a small image', async () => {
+            assert.equal(await panel.addCustomAvatarFromUrl('avatar', 'javascript:alert(1)'), false);
+            assert.match(avatarTab().querySelector('.vfx-error:not(.hidden)').textContent, /link to an image/);
+            assert.equal(await panel.uploadCustomAvatar('avatar', [{ name: 'model.glb', type: '', size: 10 }]), false);
+            assert.match(avatarTab().querySelector('.vfx-error:not(.hidden)').textContent, /Choose an image/);
+            assert.equal(
+                await panel.uploadCustomAvatar('avatar', [
+                    { name: 'big.png', type: 'image/png', size: 11 * 1024 * 1024 },
+                ]),
+                false
+            );
+            assert.match(avatarTab().querySelector('.vfx-error:not(.hidden)').textContent, /too large/);
+            assert.equal(registered().length, 0);
+        });
+
+        it('forgets a picture that cannot be loaded and keeps the previous effect', async () => {
+            await panel.selectEffect('glasses');
+            const warn = console.warn;
+            console.warn = () => {};
+            engine.setEffect = async () => {
+                throw new Error('network');
+            };
+            assert.equal(await panel.addCustomAvatarFromUrl('avatar', PICTURE), false);
+            console.warn = warn;
+            assert.equal(registered().length, 0);
+            assert.equal(engine.state.effect, 'glasses');
+            assert.match(avatarTab().querySelector('.vfx-error:not(.hidden)').textContent, /can’t be loaded/);
+        });
+
+        it('restores pictures from links next to the 3D avatars', () => {
+            window.localStorage.setItem(
+                'videoEffectsCustomAvatars',
+                JSON.stringify([
+                    { id: 'avatar-custom-a', label: 'Saved', url: PICTURE, scale: 1.2 },
+                    { id: 'avatar3d-custom-b', label: 'Model', url: 'https://models.example.com/a.glb', scale: 1 },
+                    { id: 'avatar-custom-c', label: 'Blob', url: 'blob:https://sepehr.test/x', scale: 1 },
+                ])
+            );
+            const other = new window.VideoEffectsPanel(createEngine(), { background });
+            assert.deepEqual(
+                [...new window.SepehrVFX.EffectsManager().list().map(({ id }) => id)].filter((id) =>
+                    id.includes('-custom-')
+                ),
+                ['avatar-custom-a', 'avatar3d-custom-b']
+            );
+            assert.equal(effectOf('avatar-custom-a').layers[0].width, 3 * 1.2);
+            other.destroy();
+        });
+    });
+
+    describe('custom picture effects', () => {
+        const PICTURE = 'https://images.example.com/red-nose.png';
+        const effectsTab = () => $$('.vfx-tabpanel')[1];
+        const effectCards = () => effectsTab().querySelectorAll('.vfx-grid .vfx-card');
+        const effectOf = (id) => new window.SepehrVFX.EffectsManager().getEffect(id);
+        const registered = () =>
+            new window.SepehrVFX.EffectsManager().list().filter((effect) => effect.id.startsWith('effect-custom-'));
+
+        beforeEach(() => {
+            const base = engine.getEffects();
+            engine.getEffects = () => [...base, ...registered()];
+        });
+
+        it('adds a picture where the user chose, and moves and resizes the one that is on', async () => {
+            panel.openTab('face');
+            assert.ok(effectsTab().querySelector('.vfx-url-row'), 'the Effects tab has the link field');
+            assert.equal(effectCards().length, 2);
+            assert.equal(effectsTab().querySelectorAll('.vfx-placement button').length, 4);
+
+            await panel.setPlacement('nose');
+            assert.equal(await panel.addCustomAvatarFromUrl('face', PICTURE), true);
+            const [{ id }] = registered();
+            assert.ok(id.startsWith('effect-custom-'));
+            let effect = effectOf(id);
+            assert.equal(effect.category, 'face');
+            assert.equal(effect.layers.length, 1);
+            assert.equal(effect.layers[0].asset, PICTURE);
+            assert.deepEqual([...effect.layers[0].anchor], [1]);
+            assert.equal(engine.state.effect, id);
+            assert.equal(effectCards().length, 3);
+            assert.ok(effectsTab().querySelector('.vfx-card-remove'));
+            assert.equal(effectsTab().querySelector('.vfx-placement .active').textContent, 'Nose');
+
+            await panel.setPlacement('head');
+            effect = effectOf(id);
+            assert.deepEqual([...effect.layers[0].anchor], [10]);
+            await panel.setCustomAvatarSize('2');
+            assert.equal(effectOf(id).layers[0].width, 2.3 * 2);
+            assert.deepEqual(JSON.parse(window.localStorage.getItem('videoEffectsCustomAvatars')), [
+                { id, label: 'red nose', url: PICTURE, scale: 2, placement: 'head' },
+            ]);
+        });
+
+        it('restores accessories from links with their placement, ignoring a wrong one', () => {
+            window.localStorage.setItem(
+                'videoEffectsCustomAvatars',
+                JSON.stringify([
+                    { id: 'effect-custom-a', label: 'Saved', url: PICTURE, scale: 9, placement: 'eyes' },
+                    { id: 'effect-custom-b', label: 'Odd', url: PICTURE, scale: 1, placement: 'toes' },
+                ])
+            );
+            const other = new window.VideoEffectsPanel(createEngine(), { background });
+            assert.deepEqual([...effectOf('effect-custom-a').layers[0].anchor], [33, 133, 263, 362]);
+            assert.equal(effectOf('effect-custom-a').layers[0].width, 1.8 * 2.5);
+            assert.deepEqual([...effectOf('effect-custom-b').layers[0].anchor], [10]);
+            other.destroy();
+        });
+    });
+});

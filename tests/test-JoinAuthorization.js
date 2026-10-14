@@ -1,0 +1,432 @@
+'use strict';
+
+const assert = require('assert/strict');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const sinon = require('sinon');
+const { isConfiguredPresenter } = require('../app/src/PresenterManager');
+const { findHostUser } = require('../app/src/HostUsers');
+
+const serverSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'src', 'Server.js'), 'utf8');
+const handlersSource = serverSource.slice(
+    serverSource.indexOf("        socket.on('createRoom',"),
+    serverSource.indexOf("        socket.on('getRouterRtpCapabilities',")
+);
+const authorizationSource = serverSource.slice(
+    serverSource.indexOf('    async function isRoomAllowedForUser('),
+    serverSource.indexOf('    async function getPeerGeoLocation(')
+);
+
+describe('Socket.IO join authorization', () => {
+    function setup(overrides = {}, roomId = 'room-b') {
+        const handlers = {};
+        const peers = new Map();
+        const room = {
+            id: roomId,
+            isBanned: () => false,
+            getPeers: () => peers,
+            getPeersCount: () => peers.size,
+            getPeer: (peerId) => peers.get(peerId),
+            removePeer: sinon.spy((peerId) => peers.delete(peerId)),
+            addPeer: sinon.spy((peer) => peers.set(peer.id, peer)),
+            isJoinLocked: () => false,
+            isLocked: () => false,
+            isLobbyEnabled: () => false,
+            isGlobalLobbyEnabled: () => false,
+            isTimeLimitReached: () => false,
+            startTimeLimit: sinon.stub().returns(false),
+            getTimeLimit: () => null,
+            broadCast: sinon.spy(),
+            getSessionId: () => 'session-id',
+            toJson: sinon.stub().returns({ id: roomId }),
+        };
+        const hostCfg = {
+            protected: false,
+            user_auth: true,
+            users_from_db: false,
+            users: [
+                { username: 'alice', password: 'alice-password', displayname: 'Alice', allowed_rooms: ['room-a'] },
+                { username: 'bob', allowed_rooms: ['room-b'] },
+            ],
+            presenters: { list: ['admin'], join_first: false },
+            ...overrides,
+        };
+        const socket = {
+            id: 'attacker-socket',
+            handshake: { headers: { host: 'localhost:3010' } },
+            on: (event, handler) => (handlers[event] = handler),
+        };
+        const presenters = {};
+        const token = { username: 'alice', password: 'alice-password', presenter: 'false' };
+        const context = vm.createContext({
+            socket,
+            hostCfg,
+            presenters,
+            config: {},
+            log: { debug() {}, warn() {}, error() {} },
+            roomList: new Map([[roomId, room]]),
+            Validator: { isValidRoomName: () => true },
+            getIpSocket: () => '127.0.0.1',
+            checkCreateRoomLimit: () => true,
+            roomExists: () => socket.room_id === roomId,
+            getRoom: () => room,
+            checkXSS: (data) => data,
+            isValidToken: async () => true,
+            decodeToken: () => token,
+            isAuthPeer: async (username, password) => username === 'alice' && password === 'alice-password',
+            getAuthPeer: (username, password) => findHostUser(hostCfg.users, username, password),
+            isConfiguredPresenter,
+            isOidcPresenterTokenValid: () => false,
+            isPeerPresenter: () => false,
+            Peer: class {
+                constructor(peerId, data) {
+                    this.id = peerId;
+                    this.peer_name = data.peer_info.peer_name;
+                }
+                updatePeerInfo() {}
+            },
+            getActiveRooms: () => [],
+            getRTMPActiveStreams: () => [],
+            widget: { alert: { enabled: false }, enabled: false },
+            nodemailer: { sendEmailAlert() {} },
+            handleJoinWebHook: sinon.spy(),
+            serverRecordingEnabled: true,
+            createRecUploadToken: sinon.stub().returns('recording-token'),
+            rtmpEnabled: true,
+            rtmpCfg: { fromStream: true },
+            createRtmpStreamToken: sinon.stub().returns('stream-token'),
+            PEER_NAME_CHECK_LIMIT: 20,
+            PEER_NAME_CHECK_WINDOW_MS: 60000,
+        });
+        vm.runInContext(`${authorizationSource}\n${handlersSource}`, context);
+        const data = {
+            room_id: roomId,
+            peer_info: {
+                peer_name: 'Alice',
+                peer_id: socket.id,
+                peer_uuid: 'alice-uuid',
+                peer_token: 'signed-alice-token',
+                peer_presenter: false,
+            },
+        };
+        return { handlers, room, presenters, token, data, context, socket };
+    }
+
+    async function joinExistingRoom(state) {
+        const created = sinon.spy();
+        await state.handlers.createRoom({ room_id: state.room.id }, created);
+        assert.equal(created.firstCall.args[0].error, 'already exists');
+        assert.equal(state.socket.room_id, state.room.id);
+        const callback = sinon.spy();
+        await state.handlers.join(state.data, callback);
+        assert.equal(callback.callCount, 1);
+        return callback.firstCall.args[0];
+    }
+
+    function assertDenied(state, result) {
+        assert.equal(result, 'notAllowed');
+        assert.equal(state.room.addPeer.callCount, 0);
+        assert.equal(state.room.removePeer.callCount, 0);
+        assert.equal(Object.keys(state.presenters).length, 0);
+        assert.equal(state.room.toJson.callCount, 0);
+        assert.equal(state.context.createRecUploadToken.callCount, 0);
+        assert.equal(state.context.createRtmpStreamToken.callCount, 0);
+        assert.equal(state.context.handleJoinWebHook.callCount, 0);
+    }
+
+    for (const flags of [
+        { protected: true, user_auth: false },
+        { protected: false, user_auth: true },
+        { protected: true, user_auth: true },
+    ]) {
+        it(`denies alice access to room-b with host flags ${JSON.stringify(flags)}`, async () => {
+            const state = setup(flags);
+            assertDenied(state, await joinExistingRoom(state));
+        });
+    }
+
+    for (const displayName of ['bob', 'admin']) {
+        it(`does not authorize alice using the spoofed display name ${displayName}`, async () => {
+            const state = setup();
+            state.data.peer_info.peer_name = displayName;
+            assertDenied(state, await joinExistingRoom(state));
+        });
+    }
+
+    it('denies a token presenter before adding the peer or presenter entry', async () => {
+        const state = setup();
+        state.token.presenter = 'true';
+        assertDenied(state, await joinExistingRoom(state));
+    });
+
+    it('allows alice in room-a with an unrelated display name', async () => {
+        const state = setup({}, 'room-a');
+        state.data.peer_info.peer_name = 'Custom display name';
+        const result = await joinExistingRoom(state);
+        assert.equal(result.id, 'room-a');
+        assert.equal(result.recUploadToken, 'recording-token');
+        assert.equal(result.rtmpStreamToken, 'stream-token');
+        assert.equal(state.room.addPeer.callCount, 1);
+    });
+
+    it('waits for the asynchronous authorization verdict before admission', async () => {
+        const state = setup();
+        let resolveAuthorization;
+        const verdict = new Promise((resolve) => (resolveAuthorization = resolve));
+        const authorize = sinon.stub().returns(verdict);
+        state.context.isRoomAllowedForUser = authorize;
+        await state.handlers.createRoom({ room_id: state.room.id }, sinon.spy());
+        const callback = sinon.spy();
+        const joining = state.handlers.join(state.data, callback);
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(authorize.callCount, 1);
+        assert.equal(authorize.firstCall.args[1], 'alice');
+        assert.equal(callback.callCount, 0);
+        assert.equal(state.room.addPeer.callCount, 0);
+        resolveAuthorization(false);
+        await joining;
+        assertDenied(state, callback.firstCall.args[0]);
+    });
+
+    it('rejects an unauthenticated first presenter without trusting their name', async () => {
+        const state = setup({ protected: true, user_auth: false, presenters: { list: ['admin'], join_first: true } });
+        state.data.peer_info.peer_name = 'admin';
+        state.data.peer_info.peer_token = '';
+        assertDenied(state, await joinExistingRoom(state));
+    });
+
+    it('preserves tokenless guest access when only host protection is enabled', async () => {
+        const state = setup({ protected: true, user_auth: false });
+        state.data.peer_info.peer_token = '';
+        const result = await joinExistingRoom(state);
+        assert.equal(result.id, 'room-b');
+        assert.equal(state.room.addPeer.callCount, 1);
+    });
+
+    it('preserves configured presenter access based on the verified username', async () => {
+        const state = setup({ presenters: { list: ['alice'], join_first: false } });
+        state.token.presenter = 'true';
+        state.data.peer_info.peer_name = 'Custom display name';
+        const result = await joinExistingRoom(state);
+        assert.equal(result.id, 'room-b');
+        assert.equal(state.presenters['room-b'][state.socket.id].is_configured_presenter, true);
+    });
+
+    it('grants presenter to a tokenless peer that proves a configured OIDC presenter session', async () => {
+        const state = setup({ protected: false, user_auth: false, presenters: { list: [], join_first: false } });
+        state.data.peer_info.peer_token = '';
+        state.data.oidc_presenter_token = 'oidc-proof';
+        state.context.isOidcPresenterTokenValid = (token, roomId) => token === 'oidc-proof' && roomId === 'room-b';
+        const result = await joinExistingRoom(state);
+        assert.equal(result.id, 'room-b');
+        assert.equal(state.presenters['room-b'][state.socket.id].is_configured_presenter, true);
+        assert.equal(state.data.oidc_presenter_token, undefined);
+    });
+
+    it('does not grant presenter when the OIDC presenter proof is invalid', async () => {
+        const state = setup({ protected: false, user_auth: false, presenters: { list: [], join_first: false } });
+        state.data.peer_info.peer_token = '';
+        state.data.oidc_presenter_token = 'forged';
+        const result = await joinExistingRoom(state);
+        assert.equal(result.id, 'room-b');
+        assert.equal(state.presenters['room-b'][state.socket.id], undefined);
+    });
+
+    for (const [lockFlag, expected] of [
+        ['isLocked', 'isLocked'],
+        ['isJoinLocked', 'isJoinLocked'],
+    ]) {
+        it(`rejects a non-presenter before adding the peer when the room is ${lockFlag}`, async () => {
+            const state = setup({ protected: false, user_auth: false });
+            state.room[lockFlag] = () => true;
+            state.context.isSocketUnlocked = () => false;
+            state.data.peer_info.peer_token = '';
+            assert.equal(await joinExistingRoom(state), expected);
+            assert.equal(state.room.addPeer.callCount, 0);
+            assert.equal(Object.keys(state.presenters).length, 0);
+        });
+    }
+
+    it('admits a socket that already proved the room password', async () => {
+        const state = setup({ protected: false, user_auth: false });
+        state.room.isLocked = () => true;
+        state.context.isSocketUnlocked = () => true;
+        state.data.peer_info.peer_token = '';
+        const result = await joinExistingRoom(state);
+        assert.equal(result.id, 'room-b');
+        assert.equal(state.room.addPeer.callCount, 1);
+    });
+
+    it('rejects new peers once the room time limit is reached', async () => {
+        const state = setup({ protected: false, user_auth: false });
+        state.room.isTimeLimitReached = () => true;
+        state.data.peer_info.peer_token = '';
+        assert.equal(await joinExistingRoom(state), 'isTimeLimitReached');
+        assert.equal(state.room.addPeer.callCount, 0);
+    });
+
+    it('lets a presenter start the room time limit and notifies the other peers', async () => {
+        const state = setup({ protected: false, user_auth: false, presenters: { list: [], join_first: true } });
+        state.data.peer_info.peer_token = '';
+        state.data.room_duration = '00:30:00';
+        state.room.startTimeLimit = sinon.stub().returns(true);
+        state.room.getTimeLimit = () => ({ durationMs: 1800000, remainingMs: 1800000, reached: false });
+        await joinExistingRoom(state);
+        assert.equal(state.room.startTimeLimit.firstCall.args[0], '00:30:00');
+        const [peerId, action, payload] = state.room.broadCast.firstCall.args;
+        assert.equal(peerId, state.socket.id);
+        assert.equal(action, 'roomTimeLimit');
+        assert.deepEqual(JSON.parse(JSON.stringify(payload)), {
+            action: 'start',
+            durationMs: 1800000,
+            remainingMs: 1800000,
+            reached: false,
+        });
+    });
+
+    it('ignores a room time limit requested by a non-presenter', async () => {
+        const state = setup({ protected: false, user_auth: false, presenters: { list: [], join_first: false } });
+        state.data.peer_info.peer_token = '';
+        state.data.room_duration = '00:00:01';
+        await joinExistingRoom(state);
+        assert.equal(state.room.startTimeLimit.callCount, 0);
+        assert.equal(state.room.broadCast.callCount, 0);
+    });
+
+    it('ignores a room time limit requested in a breakout room', async () => {
+        const state = setup(
+            { protected: false, user_auth: false, presenters: { list: [], join_first: true } },
+            'room-b_breakout_1'
+        );
+        state.data.peer_info.peer_token = '';
+        state.data.room_duration = '00:10:00';
+        state.context.notifyMainRoomBreakoutCountChanged = () => {};
+        await joinExistingRoom(state);
+        assert.equal(state.room.startTimeLimit.callCount, 0);
+    });
+
+    it('enforces the HOST_USERS displayname as the peer name', async () => {
+        const state = setup({}, 'room-a');
+        state.data.peer_info.peer_name = 'Mallory';
+        const result = await joinExistingRoom(state);
+        assert.equal(result.id, 'room-a');
+        assert.equal(state.room.addPeer.firstCall.args[0].peer_name, 'Alice');
+        assert.equal(state.data.peer_info.peer_name, 'Alice');
+    });
+
+    it('keeps the typed name when the HOST_USERS entry has no displayname', async () => {
+        const state = setup({}, 'room-a');
+        state.context.hostCfg.users[0].displayname = '';
+        state.data.peer_info.peer_name = 'Custom display name';
+        await joinExistingRoom(state);
+        assert.equal(state.room.addPeer.firstCall.args[0].peer_name, 'Custom display name');
+    });
+
+    it('rejects the enforced displayname when it is already in use in the room', async () => {
+        const state = setup({}, 'room-a');
+        state.room.getPeers().set('other-socket', { id: 'other-socket', peer_name: 'Alice' });
+        state.data.peer_info.peer_name = 'Someone else';
+        assert.equal(await joinExistingRoom(state), 'isNameInUse');
+        assert.equal(state.room.addPeer.callCount, 0);
+    });
+
+    describe('Socket.IO pre-join display name check', () => {
+        function guestState(overrides = {}) {
+            return setup({ protected: false, user_auth: false, ...overrides });
+        }
+
+        async function checkName(state, data = {}) {
+            const callback = sinon.spy();
+            await state.handlers.checkPeerName(
+                { room_id: state.room.id, peer_name: 'Alex', peer_uuid: 'alex-uuid', peer_token: '', ...data },
+                callback
+            );
+            assert.equal(callback.callCount, 1);
+            return { ...callback.firstCall.args[0] };
+        }
+
+        function addPeer(state, name, id = 'other-socket') {
+            state.room.getPeers().set(id, { id, peer_name: name });
+        }
+
+        it('reports an exact name already used in the room, without joining', async () => {
+            const state = guestState();
+            addPeer(state, 'Alex');
+            assert.deepEqual(await checkName(state), { inUse: true });
+            assert.equal(state.socket.room_id, undefined);
+            assert.equal(state.room.addPeer.callCount, 0);
+        });
+
+        it('reports a free name, using the same exact comparison as join', async () => {
+            const state = guestState();
+            addPeer(state, 'alex');
+            assert.deepEqual(await checkName(state), { inUse: false });
+        });
+
+        it('does not count the caller own socket', async () => {
+            const state = guestState();
+            addPeer(state, 'Alex', state.socket.id);
+            assert.deepEqual(await checkName(state), { inUse: false });
+        });
+
+        for (const [label, data] of [
+            ['an unknown room', { room_id: 'missing-room' }],
+            ['an empty name', { peer_name: '  ' }],
+            ['a non-string name', { peer_name: { $ne: '' } }],
+            ['a too long name', { peer_name: 'x'.repeat(255) }],
+        ]) {
+            it(`answers not in use for ${label}`, async () => {
+                const state = guestState();
+                addPeer(state, 'Alex');
+                assert.deepEqual(await checkName(state, data), { inUse: false });
+            });
+        }
+
+        it('reveals nothing to a peer that join would reject as unauthorized', async () => {
+            const state = setup({ protected: false, user_auth: true });
+            addPeer(state, 'Alex');
+            assert.deepEqual(await checkName(state), { inUse: false });
+        });
+
+        it('reveals nothing to a host user for a room they are not allowed in', async () => {
+            const state = setup({
+                users: [{ username: 'alice', password: 'alice-password', allowed_rooms: ['room-a'] }],
+            });
+            addPeer(state, 'Alex');
+            assert.deepEqual(await checkName(state, { peer_token: 'signed-alice-token' }), { inUse: false });
+        });
+
+        it('checks the typed name for an allowed host user without an enforced displayname', async () => {
+            const state = setup({}, 'room-a');
+            state.context.hostCfg.users[0].displayname = '';
+            addPeer(state, 'Alex');
+            assert.deepEqual(await checkName(state, { peer_token: 'signed-alice-token' }), { inUse: true });
+        });
+
+        it('skips the typed name when a HOST_USERS displayname will replace it on join', async () => {
+            const state = setup({}, 'room-a');
+            addPeer(state, 'Alex');
+            assert.deepEqual(await checkName(state, { peer_token: 'signed-alice-token' }), { inUse: false });
+        });
+
+        it('reveals nothing to a banned peer', async () => {
+            const state = guestState();
+            state.room.isBanned = (uuid) => uuid === 'alex-uuid';
+            addPeer(state, 'Alex');
+            assert.deepEqual(await checkName(state), { inUse: false });
+        });
+
+        it('rate limits checks per socket', async () => {
+            const state = guestState();
+            addPeer(state, 'Alex');
+            for (let i = 0; i < 20; i++) assert.deepEqual(await checkName(state), { inUse: true });
+            assert.deepEqual(await checkName(state), { inUse: false });
+        });
+
+        it('ignores calls without an acknowledgement callback', async () => {
+            const state = guestState();
+            await state.handlers.checkPeerName({ room_id: state.room.id, peer_name: 'Alex' });
+        });
+    });
+});
