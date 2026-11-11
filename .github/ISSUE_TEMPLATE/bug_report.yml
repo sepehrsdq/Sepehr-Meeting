@@ -1,0 +1,52 @@
+name: گزارش باگ
+description: چیزی درست کار نمی‌کند یا رفتار غیرمنتظره‌ای دیده می‌شود
+title: "[باگ] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: چه اتفاقی افتاد؟
+      description: رفتار واقعی و چیزی که انتظار داشتی را بنویس.
+      placeholder: وقتی روی «ورود به جلسه» می‌زنم، صفحه سفید می‌ماند.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: مراحل بازتولید
+      description: قدم‌به‌قدم، طوری که بشود دقیقاً همان مشکل را دید.
+      placeholder: |
+        1. با دو مرورگر مختلف وارد شوید
+        2. دوربین و میکروفن را وصل کنید
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: نسخه
+      description: نسخهٔ Sepehr Meeting یا هش کامیت
+      placeholder: "1.0.0"
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: مرورگر
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - سایر
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: لاگ یا پیام خطا
+      description: خروجی کنسول مرورگر یا لاگ سرور (بدون اطلاعات شخصی)
+      render: shell
