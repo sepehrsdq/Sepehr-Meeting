@@ -57,7 +57,7 @@ SERVER_SSL_CERT=../ssl/company-cert.pem
 SERVER_SSL_KEY=../ssl/company-key.pem
 ```
 
-(فایل‌ها را در `app/ssl/` قرار دهید. در نبود CA داخلی، گواهی فعلی self-signed باقی می‌ماند.)
+(فایل‌ها را در `app/ssl/` قرار دهید. برای توسعهٔ محلی `npm run ssl:dev` یک جفت self-signed می‌سازد؛ کلید خصوصی هیچ‌وقت کامیت نمی‌شود.)
 
 ## ۵. نصب به‌عنوان Windows Service
 

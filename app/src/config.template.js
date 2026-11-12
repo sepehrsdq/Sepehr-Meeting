@@ -365,7 +365,7 @@ module.exports = {
             server: process.env.RTMP_SERVER || 'rtmp://localhost:1935',
             appName: process.env.RTMP_APP_NAME || 'live',
             streamKey: process.env.RTMP_STREAM_KEY || '',
-            secret: process.env.RTMP_SECRET || 'sepehrRtmpSecret',
+            secret: process.env.RTMP_SECRET || '',
             apiSecret: process.env.RTMP_API_SECRET || '',
             expirationHours: parseInt(process.env.RTMP_EXPIRATION_HOURS) || 4,
             dir: process.env.RTMP_DIR || '../rtmp',
@@ -549,7 +549,7 @@ module.exports = {
                 clientSecret: process.env.OIDC_CLIENT_SECRET || 'clientSecret',
 
                 // Session configuration
-                secret: process.env.OIDC_SECRET || 'sepehrmeet-oidc-secret',
+                secret: process.env.OIDC_SECRET || '',
                 authRequired: process.env.OIDC_AUTH_REQUIRED === 'true', // Whether all routes require authentication
                 auth0Logout: process.env.OIDC_AUTH_LOGOUT !== 'false', // Use provider's logout endpoint
 
@@ -636,7 +636,7 @@ module.exports = {
             minBlockTime: process.env.HOST_MIN_LOGIN_BLOCK_TIME || 15, // in minutes
 
             users_from_db: process.env.HOST_USERS_FROM_DB === 'true',
-            users_api_secret_key: process.env.USERS_API_SECRET || 'sepehrweb_default_secret',
+            users_api_secret_key: process.env.USERS_API_SECRET || '',
             users_api_endpoint: process.env.USERS_API_ENDPOINT || 'http://localhost:9000/api/v1/user/isAuth', // external users API
             users_api_room_allowed:
                 process.env.USERS_ROOM_ALLOWED_ENDPOINT || 'http://localhost:9000/api/v1/user/isRoomAllowed', // external users API

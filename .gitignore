@@ -25,6 +25,15 @@ rec
 rtmp
 rnnoiseBuild
 
+# local TLS certificates — never commit private keys
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+app/ssl/
+rtmpServers/node-media-server/src/*.pem
+
 # virtual background
 custom
 

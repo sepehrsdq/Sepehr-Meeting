@@ -201,17 +201,27 @@ const slackSigningSecret = config?.integrations?.slack?.signingSecret || '';
 
 const app = express();
 
-const options = {
-    cert: fs.readFileSync(path.join(__dirname, config?.server?.ssl.cert || '../ssl/cert.pem'), 'utf-8'),
-    key: fs.readFileSync(path.join(__dirname, config?.server?.ssl.key || '../ssl/key.pem'), 'utf-8'),
-};
-
 const corsOptions = {
     origin: config.server?.cors?.origin || '*',
     methods: config.server?.cors?.methods || ['GET', 'POST'],
 };
 
-const server = httpolyglot.createServer(options, app);
+// A fresh clone has no local certificate (private keys are never committed).
+// Keep HTTP working and point the developer at the generator instead of crashing.
+let server;
+try {
+    const options = {
+        cert: fs.readFileSync(path.join(__dirname, config?.server?.ssl.cert || '../ssl/cert.pem'), 'utf-8'),
+        key: fs.readFileSync(path.join(__dirname, config?.server?.ssl.key || '../ssl/key.pem'), 'utf-8'),
+    };
+    server = httpolyglot.createServer(options, app);
+} catch (err) {
+    log.warn(
+        'TLS certificate not found; starting HTTP only. Run "npm run ssl:dev" to generate a local self-signed pair.',
+        { code: err.code }
+    );
+    server = http.createServer(app);
+}
 
 const io = socketIo(server, {
     maxHttpBufferSize: 1e7,
@@ -532,6 +542,17 @@ function getChatGPTParams(messages) {
 
 // OpenID Connect
 const OIDC = config?.security?.oidc || { enabled: false };
+
+// Fail closed: a feature that needs a secret must not run on a blank or published default.
+if (OIDC.enabled && !OIDC.secret) {
+    log.error('OIDC_SECRET is required when OIDC is enabled');
+    process.exit(1);
+}
+const rtmpCfgCheck = config?.media?.rtmp || {};
+if (rtmpCfgCheck.enabled && rtmpCfgCheck.useNodeMediaServer !== false && !rtmpCfgCheck.secret) {
+    log.error('RTMP_SECRET is required when RTMP streaming with node-media-server is enabled');
+    process.exit(1);
+}
 
 // directory
 const dir = {

@@ -84,8 +84,8 @@ npm start
 https://localhost:3010
 ```
 
-> گواهی self-signed پروژه در `app/ssl/` است؛ بار اول پیام هشدار مرورگر را با
-> **Advanced → Proceed to localhost** رد کنید.
+> بار اول `npm run ssl:dev` را بزن تا گواهی self-signed محلی ساخته شود؛ کلید خصوصی
+> در گیت نیست. بعد پیام هشدار مرورگر را با **Advanced → Proceed to localhost** رد کن.
 
 <details>
 <summary><b>اجرای سریع در ویندوز (بدون ترمینال)</b></summary>

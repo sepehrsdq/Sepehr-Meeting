@@ -7,6 +7,7 @@
         "test": "mocha tests/*.js",
         "start": "node app/src/Server.js",
         "dev": "node --watch app/src/Server.js",
+        "ssl:dev": "node scripts/generate-dev-cert.js",
         "debug": "DEBUG='mediasoup*' node app/src/Server.js",
         "lang": "node scripts/extract-ui-lang.js",
         "lang:translate": "node scripts/translate-missing-lang.js",
