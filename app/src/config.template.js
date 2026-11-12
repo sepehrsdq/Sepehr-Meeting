@@ -545,8 +545,8 @@ module.exports = {
                 // Required provider settings
                 issuerBaseURL: process.env.OIDC_ISSUER || 'https://server.example.com',
                 baseURL: process.env.OIDC_BASE_URL || `http://localhost:${process.env.PORT || 3010}`,
-                clientID: process.env.OIDC_CLIENT_ID || 'clientID',
-                clientSecret: process.env.OIDC_CLIENT_SECRET || 'clientSecret',
+                clientID: process.env.OIDC_CLIENT_ID || '',
+                clientSecret: process.env.OIDC_CLIENT_SECRET || '',
 
                 // Session configuration
                 secret: process.env.OIDC_SECRET || '',

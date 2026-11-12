@@ -544,8 +544,8 @@ function getChatGPTParams(messages) {
 const OIDC = config?.security?.oidc || { enabled: false };
 
 // Fail closed: a feature that needs a secret must not run on a blank or published default.
-if (OIDC.enabled && !OIDC.secret) {
-    log.error('OIDC_SECRET is required when OIDC is enabled');
+if (OIDC.enabled && (!OIDC.secret || !OIDC.clientID || !OIDC.clientSecret)) {
+    log.error('OIDC_SECRET, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET are required when OIDC is enabled');
     process.exit(1);
 }
 const rtmpCfgCheck = config?.media?.rtmp || {};
