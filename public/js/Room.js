@@ -2,6 +2,12 @@
 
 if (location.href.substr(0, 5) !== 'https') location.href = 'https' + location.href.substr(4, location.href.length - 4);
 
+// Stop before any room work on browsers that cannot run the media stack. The gate is a plain
+// ES5 script so it still renders a Persian explanation when this file fails to parse.
+if (window.SepehrBrowserGate && !window.SepehrBrowserGate.guard()) {
+    throw new Error('Unsupported browser — room initialization skipped (see BrowserGate).');
+}
+
 /**
  * Sepehr Meeting - Room component
  *
@@ -148,7 +154,7 @@ console.log('LOCAL_STORAGE', {
 
 const themeCustom = {
     input: document.getElementById('themeColorPicker'),
-    color: localStorageSettings.theme_color ? localStorageSettings.theme_color : '#000000',
+    color: localStorageSettings.theme_color ? localStorageSettings.theme_color : '#4f46e5',
     keep: localStorageSettings.theme_custom ? localStorageSettings.theme_custom : false,
 };
 
@@ -1625,6 +1631,15 @@ function applyNoiseSuppressionDefault() {
     console.log('Noise suppression default', { enabled });
 }
 
+// The settings label used to be painted lime/white inline for the old dark skin,
+// which left it invisible on the light card. The state is now a CSS class.
+function syncNoiseSuppressionLabel(enabled) {
+    const label = document.getElementById('labelNoiseSuppression');
+    if (!label) return;
+    label.classList.toggle('is-on', !!enabled);
+    label.style.removeProperty('color');
+}
+
 function getHideMeActive() {
     let hide = getQueryParam('hide');
     let queryHideMe = false;
@@ -2221,7 +2236,8 @@ async function whoAreYou() {
             await stopTracks(initStream);
             stopInitVideoEffects();
             const hideInitVideo = () => {
-                elemDisplay('initVideo', false);
+                // The preview element lives inside the (now closed) init modal.
+                if (getId('initVideo')) elemDisplay('initVideo', false);
                 initVideoContainerShow(false);
             };
             Swal.isVisible() ? (onInitModalClosed = hideInitVideo) : hideInitVideo();
@@ -4768,8 +4784,10 @@ function handleSelects() {
         localStorageSettings.mic_noise_suppression = enabled;
         localStorageSettings.mic_noise_suppression_user_set = true;
         lS.setSettings(localStorageSettings);
+        // The old dark-skin inline color is gone; state lives in the CSS class.
+        syncNoiseSuppressionLabel(enabled);
         if (rc.RNNoiseProcessor) rc.RNNoiseProcessor.setNoiseSuppression(enabled);
-        userLog(enabled ? 'success' : 'info', `Noise suppression ${enabled ? 'enabled' : 'disabled'}`, 'top-end', 1800);
+        userLog(enabled ? 'success' : 'info', enabled ? 'سرکوب صدا روشن شد' : 'سرکوب صدا خاموش شد', 'top-end', 1800);
         e.target.blur();
     };
 
@@ -5766,6 +5784,7 @@ function loadSettingsFromLocalStorage() {
 
     switchDominantSpeakerFocus.checked = localStorageSettings.dominant_speaker_focus;
     switchNoiseSuppression.checked = localStorageSettings.mic_noise_suppression;
+    syncNoiseSuppressionLabel(switchNoiseSuppression.checked);
 
     setSpeakerVolume(localStorageSettings.speaker_volume !== undefined ? localStorageSettings.speaker_volume : 100);
 
@@ -7304,7 +7323,7 @@ function setupQuickDeviceSwitchDropdowns() {
             appendMenuHeader(audioMenu, 'fas fa-ear-listen', 'Microphone Controls');
 
             if (showNoiseSuppression) {
-                appendMenuToggle(audioMenu, 'deviceMenuNoiseSuppression', 'Noise cancellation', switchNoiseSuppression);
+                appendMenuToggle(audioMenu, 'deviceMenuNoiseSuppression', 'سرکوب صدا', switchNoiseSuppression);
             }
             if (showPushToTalk) {
                 appendMenuToggle(audioMenu, 'deviceMenuPushToTalk', 'Push to talk', switchPushToTalk);
@@ -9906,153 +9925,53 @@ function renderDynamicThemeCards() {
     }
 }
 
+// Sepehr light theme system — every theme keeps the light Persian brand
+// surfaces and only changes the accent color. (The legacy upstream themes
+// replaced all surfaces with dark gradients through inline custom properties,
+// which outrank the light stylesheet and left dark ink text on dark panels.)
+const LIGHT_THEME_BASE = {
+    '--body-bg':
+        'radial-gradient(1200px 620px at 85% -10%, #eef2ff 0%, transparent 60%), ' +
+        'radial-gradient(900px 520px at 0% 0%, #e6f4ff 0%, transparent 55%), ' +
+        'linear-gradient(160deg, #f8f9fe 0%, #eef1fa 60%, #e8ecf8 100%)',
+    '--trx-bg': '#ffffff',
+    '--msger-bg': '#ffffff',
+    '--select-bg': '#f3f5fc',
+    '--tab-btn-active': '#ffffff',
+    '--settings-bg': '#ffffff',
+    '--wb-bg': '#ffffff',
+    '--btns-bg-color': 'rgba(255, 255, 255, 0.92)',
+    // Ink stays the light-brand dark text so every panel remains readable
+    '--ink': '#14142b',
+    '--dd-color': '#14142b',
+    '--fg-1': '#14142b',
+    '--fg-2': '#2b2c4a',
+    '--fg-3': '#4b4c6b',
+    '--fg-muted': '#6d6e8c',
+    '--room-switch-ink': '#ffffff',
+};
+
+const lightTheme = (accent) => ({
+    ...LIGHT_THEME_BASE,
+    '--room-accent': accent,
+    '--room-switch-accent': accent,
+    '--select-focus-color': `color-mix(in srgb, ${accent} 40%, transparent)`,
+    '--left-msg-bg': `color-mix(in srgb, ${accent} 7%, #ffffff)`,
+    '--right-msg-bg': `color-mix(in srgb, ${accent} 16%, #ffffff)`,
+    '--private-msg-bg': 'color-mix(in srgb, #e11d48 8%, #ffffff)',
+});
+
 let themeMap = {
-    default: {
-        '--body-bg': 'linear-gradient(135deg, #0e0e14, #1e1e28)',
-        '--trx-bg': 'linear-gradient(135deg, #0e0e14, #1e1e28)',
-        '--msger-bg': 'linear-gradient(135deg, #0e0e14, #1e1e28)',
-        '--left-msg-bg': '#141420',
-        '--right-msg-bg': '#1a1a26',
-        '--select-bg': '#161622',
-        '--select-focus-color': 'rgba(102, 190, 255, 0.5)',
-        '--tab-btn-active': '#1e1e28',
-        '--settings-bg': 'linear-gradient(135deg, #0e0e14, #1e1e28)',
-        '--wb-bg': 'linear-gradient(135deg, #0e0e14, #1e1e28)',
-        '--btns-bg-color': 'rgba(10, 10, 16, 0.8)',
-        '--dd-color': '#E8E8EC',
-        '--room-switch-accent': '#4678F9',
-        '--room-switch-ink': '#FFFFFF',
-    },
-    dark: {
-        '--body-bg': 'linear-gradient(135deg, #0d0d12, #181820)',
-        '--trx-bg': 'linear-gradient(135deg, #0d0d12, #181820)',
-        '--msger-bg': 'linear-gradient(135deg, #0d0d12, #181820)',
-        '--left-msg-bg': '#111118',
-        '--right-msg-bg': '#1a1a22',
-        '--select-bg': '#14141c',
-        '--select-focus-color': 'rgba(154, 186, 255, 0.42)',
-        '--tab-btn-active': '#181820',
-        '--settings-bg': 'linear-gradient(135deg, #0d0d12, #181820)',
-        '--wb-bg': 'linear-gradient(135deg, #0d0d12, #181820)',
-        '--btns-bg-color': 'rgba(10, 10, 16, 0.85)',
-        '--dd-color': '#E0E0E6',
-        '--room-switch-accent': '#4678F9',
-        '--room-switch-ink': '#FFFFFF',
-    },
-    grey: {
-        '--body-bg': 'linear-gradient(135deg, #1c1c24, #3a3a46)',
-        '--trx-bg': 'linear-gradient(135deg, #1c1c24, #3a3a46)',
-        '--msger-bg': 'linear-gradient(135deg, #1c1c24, #3a3a46)',
-        '--left-msg-bg': '#24242e',
-        '--right-msg-bg': '#32323e',
-        '--select-bg': '#222230',
-        '--select-focus-color': 'rgba(196, 204, 224, 0.38)',
-        '--tab-btn-active': '#3a3a46',
-        '--settings-bg': 'linear-gradient(135deg, #1c1c24, #3a3a46)',
-        '--wb-bg': 'linear-gradient(135deg, #1c1c24, #3a3a46)',
-        '--btns-bg-color': 'rgba(22, 22, 30, 0.75)',
-        '--dd-color': '#E4E4EA',
-        '--room-switch-accent': '#4678F9',
-        '--room-switch-ink': '#FFFFFF',
-    },
-    green: {
-        '--body-bg': 'linear-gradient(135deg, #0f1d1a, #1a3830)',
-        '--trx-bg': 'linear-gradient(135deg, #0f1d1a, #1a3830)',
-        '--msger-bg': 'linear-gradient(135deg, #0f1d1a, #1a3830)',
-        '--left-msg-bg': '#0d1816',
-        '--right-msg-bg': '#1e2e2a',
-        '--select-bg': '#122420',
-        '--select-focus-color': 'rgba(111, 207, 151, 0.42)',
-        '--tab-btn-active': '#1a3830',
-        '--settings-bg': 'linear-gradient(135deg, #0f1d1a, #1a3830)',
-        '--wb-bg': 'linear-gradient(135deg, #0f1d1a, #1a3830)',
-        '--btns-bg-color': 'rgba(12, 24, 20, 0.75)',
-        '--dd-color': '#6FCF97',
-    },
-    blue: {
-        '--body-bg': 'linear-gradient(135deg, #111827, #1e3050)',
-        '--trx-bg': 'linear-gradient(135deg, #111827, #1e3050)',
-        '--msger-bg': 'linear-gradient(135deg, #111827, #1e3050)',
-        '--left-msg-bg': '#0e1420',
-        '--right-msg-bg': '#1a2840',
-        '--select-bg': '#131c30',
-        '--select-focus-color': 'rgba(107, 163, 214, 0.45)',
-        '--tab-btn-active': '#1e3050',
-        '--settings-bg': 'linear-gradient(135deg, #111827, #1e3050)',
-        '--wb-bg': 'linear-gradient(135deg, #111827, #1e3050)',
-        '--btns-bg-color': 'rgba(14, 20, 34, 0.75)',
-        '--dd-color': '#6BA3D6',
-    },
-    red: {
-        '--body-bg': 'linear-gradient(135deg, #1c1015, #332028)',
-        '--trx-bg': 'linear-gradient(135deg, #1c1015, #332028)',
-        '--msger-bg': 'linear-gradient(135deg, #1c1015, #332028)',
-        '--left-msg-bg': '#180e12',
-        '--right-msg-bg': '#2a1c22',
-        '--select-bg': '#20141a',
-        '--select-focus-color': 'rgba(224, 112, 112, 0.42)',
-        '--tab-btn-active': '#332028',
-        '--settings-bg': 'linear-gradient(135deg, #1c1015, #332028)',
-        '--wb-bg': 'linear-gradient(135deg, #1c1015, #332028)',
-        '--btns-bg-color': 'rgba(22, 12, 16, 0.75)',
-        '--dd-color': '#E07070',
-    },
-    purple: {
-        '--body-bg': 'linear-gradient(135deg, #18102a, #2e2045)',
-        '--trx-bg': 'linear-gradient(135deg, #18102a, #2e2045)',
-        '--msger-bg': 'linear-gradient(135deg, #18102a, #2e2045)',
-        '--left-msg-bg': '#140e22',
-        '--right-msg-bg': '#261c3a',
-        '--select-bg': '#1c1430',
-        '--select-focus-color': 'rgba(176, 124, 200, 0.42)',
-        '--tab-btn-active': '#2e2045',
-        '--settings-bg': 'linear-gradient(135deg, #18102a, #2e2045)',
-        '--wb-bg': 'linear-gradient(135deg, #18102a, #2e2045)',
-        '--btns-bg-color': 'rgba(18, 12, 34, 0.75)',
-        '--dd-color': '#B07CC8',
-    },
-    orange: {
-        '--body-bg': 'linear-gradient(135deg, #1c1510, #3a2a1a)',
-        '--trx-bg': 'linear-gradient(135deg, #1c1510, #3a2a1a)',
-        '--msger-bg': 'linear-gradient(135deg, #1c1510, #3a2a1a)',
-        '--left-msg-bg': '#18120e',
-        '--right-msg-bg': '#302218',
-        '--select-bg': '#221a12',
-        '--select-focus-color': 'rgba(232, 165, 96, 0.45)',
-        '--tab-btn-active': '#3a2a1a',
-        '--settings-bg': 'linear-gradient(135deg, #1c1510, #3a2a1a)',
-        '--wb-bg': 'linear-gradient(135deg, #1c1510, #3a2a1a)',
-        '--btns-bg-color': 'rgba(22, 16, 12, 0.75)',
-        '--dd-color': '#E8A560',
-    },
-    pink: {
-        '--body-bg': 'linear-gradient(135deg, #1c1018, #382030)',
-        '--trx-bg': 'linear-gradient(135deg, #1c1018, #382030)',
-        '--msger-bg': 'linear-gradient(135deg, #1c1018, #382030)',
-        '--left-msg-bg': '#180e14',
-        '--right-msg-bg': '#2e1c28',
-        '--select-bg': '#201420',
-        '--select-focus-color': 'rgba(216, 139, 160, 0.42)',
-        '--tab-btn-active': '#382030',
-        '--settings-bg': 'linear-gradient(135deg, #1c1018, #382030)',
-        '--wb-bg': 'linear-gradient(135deg, #1c1018, #382030)',
-        '--btns-bg-color': 'rgba(22, 12, 18, 0.75)',
-        '--dd-color': '#D88BA0',
-    },
-    yellow: {
-        '--body-bg': 'linear-gradient(135deg, #1a1810, #36321a)',
-        '--trx-bg': 'linear-gradient(135deg, #1a1810, #36321a)',
-        '--msger-bg': 'linear-gradient(135deg, #1a1810, #36321a)',
-        '--left-msg-bg': '#16140e',
-        '--right-msg-bg': '#2c2a18',
-        '--select-bg': '#201e12',
-        '--select-focus-color': 'rgba(212, 184, 92, 0.44)',
-        '--tab-btn-active': '#36321a',
-        '--settings-bg': 'linear-gradient(135deg, #1a1810, #36321a)',
-        '--wb-bg': 'linear-gradient(135deg, #1a1810, #36321a)',
-        '--btns-bg-color': 'rgba(20, 18, 12, 0.75)',
-        '--dd-color': '#D4B85C',
-    },
+    default: lightTheme('#4f46e5'),
+    dark: lightTheme('#475569'),
+    grey: lightTheme('#64748b'),
+    green: lightTheme('#059669'),
+    blue: lightTheme('#0284c7'),
+    red: lightTheme('#dc2626'),
+    purple: lightTheme('#7c3aed'),
+    orange: lightTheme('#ea580c'),
+    pink: lightTheme('#db2777'),
+    yellow: lightTheme('#ca8a04'),
 };
 
 function applyTheme(props) {
@@ -10063,30 +9982,24 @@ function applyTheme(props) {
     root.setProperty('--room-switch-accent', props['--room-switch-accent'] || props['--dd-color']);
     root.setProperty('--room-switch-ink', props['--room-switch-ink'] || '#101314');
     setSwalTheme(props);
-    swalBackground = props['--body-bg'];
+    // Dialogs are porcelain-white in the light design; never pass a page
+    // gradient as the Swal background.
+    swalBackground = props['--swal-bg'] || '#ffffff';
     document.body.style.background = props['--body-bg'];
 }
 
 function setCustomTheme() {
+    // A custom color only re-accents the light brand surface (switches, focus
+    // rings, chat tints); panels and text stay light and readable.
     const color = themeCustom.color;
-    const grad = `radial-gradient(${color}, ${color})`;
+    const accent = /^#[0-9a-f]{6}$/i.test(color) ? color : '#4f46e5';
     applyTheme({
-        '--body-bg': grad,
-        '--trx-bg': grad,
-        '--msger-bg': grad,
-        '--left-msg-bg': color,
-        '--right-msg-bg': color,
-        '--select-bg': color,
-        '--select-focus-color': `color-mix(in srgb, ${color} 58%, white)`,
-        '--tab-btn-active': color,
-        '--settings-bg': grad,
-        '--wb-bg': grad,
-        '--btns-bg-color': 'rgba(0, 0, 0, 0.7)',
-        '--dd-color': '#FFFFFF',
-        '--room-switch-accent': `color-mix(in srgb, ${color} 45%, white)`,
-        '--room-switch-ink': '#101314',
-        '--swal-neutral-bg': `color-mix(in srgb, ${color} 55%, black)`,
-        '--swal-focus-bg': color,
+        ...LIGHT_THEME_BASE,
+        '--room-accent': accent,
+        '--room-switch-accent': accent,
+        '--select-focus-color': `color-mix(in srgb, ${accent} 40%, transparent)`,
+        '--left-msg-bg': `color-mix(in srgb, ${accent} 7%, #ffffff)`,
+        '--right-msg-bg': `color-mix(in srgb, ${accent} 16%, #ffffff)`,
     });
 }
 

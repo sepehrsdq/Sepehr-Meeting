@@ -22,6 +22,23 @@ function normalizeBaseUrl(url) {
         .replace(/\/+$/, '');
 }
 
+// A public base URL must be absolute, otherwise canonical/OG/sitemap links stay relative.
+function isAbsoluteHttpUrl(value) {
+    return /^https?:\/\//i.test(String(value || '').trim());
+}
+
+function resolvePublicBaseUrl(ogUrl, fallback) {
+    return isAbsoluteHttpUrl(ogUrl) ? normalizeBaseUrl(ogUrl) : normalizeBaseUrl(fallback);
+}
+
+// Resolve a possibly relative asset URL (e.g. og:image) against the public base URL.
+function resolvePublicUrl(value, baseUrl) {
+    const raw = String(value || '').trim();
+    if (!raw || isAbsoluteHttpUrl(raw)) return raw;
+    const base = normalizeBaseUrl(baseUrl);
+    return base ? `${base}/${raw.replace(/^\/+/, '')}` : raw;
+}
+
 function escapeXml(value) {
     return String(value).replace(/[&<>"']/g, (c) => {
         const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' };
@@ -91,4 +108,14 @@ function buildJsonLd({ name, description, url, image }) {
     return JSON.stringify(graph).replace(/</g, '\\u003c');
 }
 
-module.exports = { buildRobotsTxt, buildSitemapXml, buildJsonLd, normalizeBaseUrl, SITEMAP_PATHS, ROBOTS_DISALLOW };
+module.exports = {
+    buildRobotsTxt,
+    buildSitemapXml,
+    buildJsonLd,
+    normalizeBaseUrl,
+    isAbsoluteHttpUrl,
+    resolvePublicBaseUrl,
+    resolvePublicUrl,
+    SITEMAP_PATHS,
+    ROBOTS_DISALLOW,
+};

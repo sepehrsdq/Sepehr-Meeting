@@ -1,0 +1,21 @@
+/*
+ * سامانه سپهر — فونت واحد ایران‌سنس (با اعداد فارسی)
+ * همان فونتی که پرتال سازمانی استفاده می‌کند؛ کاملاً محلی و آفلاین.
+ * مسیر فایل TTF نسبت به این CSS در vendor/fonts/iransans/ است.
+ */
+@font-face {
+    font-family: 'IRANSans';
+    src: url('IRANSansWebFaNum.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* same family name declared for bold weights so browsers synthesize cleanly */
+@font-face {
+    font-family: 'IRANSans';
+    src: url('IRANSansWebFaNum.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}

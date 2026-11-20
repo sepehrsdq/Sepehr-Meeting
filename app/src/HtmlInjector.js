@@ -5,7 +5,7 @@ const chokidar = require('chokidar');
 const packageJson = require('../../package.json');
 
 const Logger = require('./Logger');
-const { buildJsonLd, normalizeBaseUrl } = require('./Seo');
+const { buildJsonLd, normalizeBaseUrl, resolvePublicUrl, resolvePublicBaseUrl } = require('./Seo');
 
 const log = new Logger('HtmlInjector');
 
@@ -28,7 +28,8 @@ class HtmlInjector {
         const ogDescription =
             this.config?.og?.description ||
             'Sepehr Meeting, a self-hosted WebRTC video conferencing platform powered by Mediasoup. Host scalable meetings, webinars, classrooms, screen sharing and real-time collaboration.';
-        const ogImage = this.config?.og?.image || '/images/logo.svg';
+        // Social crawlers need an absolute image URL; resolve a relative one against the public base.
+        const ogImage = resolvePublicUrl(this.config?.og?.image || '/images/logo.svg', resolvePublicBaseUrl(ogUrl, '/'));
         return {
             APP_NAME: this.config?.app?.name || 'Sepehr Meeting',
             APP_VERSION: this.config?.html?.version === false ? '' : `v${packageJson.version}`,
@@ -59,6 +60,8 @@ class HtmlInjector {
     replaceSeoPlaceholders(html) {
         return html
             .replace(/{{CANONICAL_URL}}/g, () => this.escapeHtml(this.injectData.CANONICAL_URL))
+            .replace(/{{OG_URL}}/g, () => this.escapeHtml(this.injectData.OG_URL))
+            .replace(/{{OG_IMAGE}}/g, () => this.escapeHtml(this.injectData.OG_IMAGE))
             .replace(/{{JSON_LD}}/g, () => this.injectData.JSON_LD);
     }
 

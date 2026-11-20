@@ -69,7 +69,7 @@ let BUTTONS = {
         virtualBackground: true,
         videoEffects: true, // face accessories and filters processed in the browser
         customNoiseSuppression: true, // use RNNoise else WebRTC built-in
-        customNoiseSuppressionDefault: true, // initial RNNoise state for users without a saved choice
+        customNoiseSuppressionDefault: false, // initial RNNoise state for users without a saved choice
     },
     producerVideo: {
         videoPictureInPicture: true,

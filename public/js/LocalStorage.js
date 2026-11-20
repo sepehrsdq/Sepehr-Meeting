@@ -37,7 +37,7 @@ class LocalStorage {
             moderator_polls_cant_create: false, // Only presenter can create/edit/delete polls
             moderator_disconnect_all_on_leave: false, // Disconnect all participants on leave room
             dominant_speaker_focus: false, // Focus on dominant speaker
-            mic_noise_suppression: true, // Noise suppression using RNNoise
+            mic_noise_suppression: false, // Noise suppression using RNNoise (off by default)
             mic_noise_suppression_user_set: false, // user explicitly toggled it, so the server default no longer applies
             speaker_volume: 100, // master output volume 0-100
             video_fps: 0, // default 1280x768 30fps

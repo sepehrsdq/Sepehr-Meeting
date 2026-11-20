@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap');
 
 :root {
     --body-bg: linear-gradient(135deg, #0e0e14, #1e1e28);
@@ -102,7 +101,7 @@
     --radius-pill: 999px;
 
     /* Typography */
-    --font-sans: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-sans: IRANSans, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-xs: 11px;
     --font-sm: 13px;
     --font-base: 15px;

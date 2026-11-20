@@ -7,6 +7,9 @@
     position: absolute;
     display: flex;
     top: 0;
+    /* RTL: without an explicit inset the static position pushes the stage 25% from the left
+       when a side panel is docked (chat/poll/transcription). */
+    left: 0;
     width: 100%;
     height: 100%;
     border-radius: 10px;

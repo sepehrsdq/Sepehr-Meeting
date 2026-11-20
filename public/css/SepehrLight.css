@@ -2,7 +2,7 @@
    سامانه سپهر — Design System (Light / Porcelain)
    ==========================================================================
    Palette : indigo → violet → sky on porcelain white, emerald accents
-   Type    : Vazirmatn (Persian) with system fallbacks
+   Type    : IRANSans (Persian, FaNum digits) with system fallbacks
    Motion  : dependency-free, reveal-on-scroll, tilt, float, reduced-motion safe
    Layout  : RTL-first, logical properties, 375 / 768 / 1024 / 1440 breakpoints
    ========================================================================== */
@@ -73,7 +73,7 @@ body.sp-page {
     min-height: 100vh;
     background: var(--sp-canvas);
     color: var(--sp-ink);
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     font-size: 16px;
     line-height: 1.75;
     font-feature-settings: 'ss01';
@@ -2787,7 +2787,7 @@ body.cr-page-body {
     --cr-radius: 14px;
     --cr-shadow: var(--sp-shadow);
     --cr-header-h: 76px;
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     color: var(--sp-ink);
     background-color: #fff;
     background-image:

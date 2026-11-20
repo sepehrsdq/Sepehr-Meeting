@@ -102,7 +102,7 @@ const Logger = require('./Logger');
 const Validator = require('./Validator');
 const RoomPassword = require('./RoomPassword');
 const HtmlInjector = require('./HtmlInjector');
-const { buildRobotsTxt, buildSitemapXml } = require('./Seo');
+const { buildRobotsTxt, buildSitemapXml, resolvePublicBaseUrl, resolvePublicUrl } = require('./Seo');
 const log = new Logger('Server');
 const yaml = require('js-yaml');
 const swaggerUi = require('swagger-ui-express');
@@ -209,6 +209,7 @@ const corsOptions = {
 // A fresh clone has no local certificate (private keys are never committed).
 // Keep HTTP working and point the developer at the generator instead of crashing.
 let server;
+let hasTls = true;
 try {
     const options = {
         cert: fs.readFileSync(path.join(__dirname, config?.server?.ssl.cert || '../ssl/cert.pem'), 'utf-8'),
@@ -216,6 +217,7 @@ try {
     };
     server = httpolyglot.createServer(options, app);
 } catch (err) {
+    hasTls = false;
     log.warn(
         'TLS certificate not found; starting HTTP only. Run "npm run ssl:dev" to generate a local self-signed pair.',
         { code: err.code }
@@ -223,14 +225,44 @@ try {
     server = http.createServer(app);
 }
 
+const host = config?.server?.hostUrl || `http://localhost:${config?.server?.listen?.port || 3010}`;
+const trustProxy = Boolean(config?.server?.trustProxy);
+
+// Force HTTPS: httpolyglot serves both HTTP and HTTPS on the same port, so a
+// browser that types the bare address lands on plain HTTP where getUserMedia
+// (camera/mic) is blocked. Redirect everything to https:// so the room is
+// always a secure context. Skipped when no certificate is available (fresh
+// clone); with trustProxy the TLS-terminating proxy already speaks HTTPS, so
+// only requests that arrive as plain HTTP get redirected.
+if (hasTls) {
+    app.use((req, res, next) => {
+        if (req.secure || req.protocol === 'https') return next();
+        res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+    });
+}
+
 const io = socketIo(server, {
     maxHttpBufferSize: 1e7,
     transports: ['websocket'],
+    // Generous heartbeat budget: browsers throttle timers in background tabs,
+    // which with the default 20s timeout closes healthy idle sockets after a
+    // few minutes and shows the user a misleading "connection lost" banner.
+    pingInterval: 25000,
+    pingTimeout: 90000,
     cors: corsOptions,
 });
 
-const host = config?.server?.hostUrl || `http://localhost:${config?.server?.listen?.port || 3010}`;
-const trustProxy = Boolean(config?.server?.trustProxy);
+// Canonical, OpenGraph and sitemap links must be absolute; a relative OG_URL (e.g. "/")
+// cannot identify this deployment, so fall back to the public server URL.
+if (config?.ui?.brand) {
+    const brandOg = config.ui.brand.og || {};
+    const publicBaseUrl = resolvePublicBaseUrl(brandOg.url, host);
+    config.ui.brand.og = {
+        ...brandOg,
+        url: publicBaseUrl,
+        image: resolvePublicUrl(brandOg.image, publicBaseUrl),
+    };
+}
 
 // Fail closed: refuse to start with a missing, weak or publicly known JWT secret.
 let jwtKeys;

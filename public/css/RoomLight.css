@@ -14,11 +14,11 @@
     box-shadow:
         0 4px 10px rgba(20, 20, 43, 0.04),
         0 40px 90px -32px rgba(67, 56, 202, 0.32);
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
 }
 
 #loadingDiv h1 {
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     font-weight: 800;
     font-size: clamp(1.6rem, 4vw, 2.4rem);
     color: var(--sp-ink, #14142b);
@@ -31,7 +31,7 @@
 #loadingDiv pre,
 #loadingDiv .loading-message {
     color: #5a6079;
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     line-height: 2;
 }
 
@@ -49,7 +49,7 @@
     box-shadow:
         0 4px 10px rgba(20, 20, 43, 0.04),
         0 40px 100px -34px rgba(67, 56, 202, 0.38);
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     padding: 1.6rem;
 }
 
@@ -250,7 +250,7 @@
 
 /* SweetAlert used by the pre-join flow inherits the light surface */
 .swal2-container .swal2-popup {
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
 }
 
 .swal2-popup.init-modal-size .swal2-validation-message {
@@ -282,6 +282,22 @@
     -webkit-backdrop-filter: blur(6px);
 }
 
+/* Toasts are notifications, not modals. SweetAlert already makes the toast container
+   transparent; the rule above was painting the whole 360×100vh column pale and blocking
+   the page under it. Keep the dim only for real dialogs. */
+html body.swal2-toast-shown .swal2-container.swal2-backdrop-show,
+html body.swal2-toast-shown .swal2-container {
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    pointer-events: none !important;
+}
+
+html body.swal2-toast-shown .swal2-container > .swal2-popup {
+    pointer-events: auto;
+}
+
 .swal2-container .swal2-popup:not(.breakout-swal):not(.lobby-join-popup) {
     background: #ffffff !important;
     color: #14142b !important;
@@ -290,7 +306,7 @@
     box-shadow:
         0 4px 10px rgba(20, 20, 43, 0.04),
         0 40px 90px -34px rgba(67, 56, 202, 0.34);
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     /* Re-point the room text tokens so popup content written against them
        (e.g. .qr-room-copy--body) stays readable on the light surface. */
     --fg-1: #14142b;
@@ -461,7 +477,7 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     color: #eef0f8;
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     font-size: 12px;
     font-weight: 600;
     line-height: 1;
@@ -578,7 +594,7 @@ body:has(#videoPinMediaContainer .pinned-video-container) #videoMediaContainer >
     flex: 1 1 0 !important;
     min-height: 44px !important;
     border-radius: 12px !important;
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif !important;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif !important;
     font-size: 14px !important;
     white-space: nowrap !important;
 }
@@ -607,7 +623,7 @@ body:has(#videoPinMediaContainer .pinned-video-container) #videoMediaContainer >
 .sp-share-prompt__lead {
     margin: 0 0 14px;
     color: #5a6079;
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     font-size: 14px;
     line-height: 1.85;
 }
@@ -629,7 +645,7 @@ body:has(#videoPinMediaContainer .pinned-video-container) #videoMediaContainer >
     border-radius: 13px;
     background: #f7f8fd;
     color: #303650;
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     font-size: 13px;
     line-height: 1.7;
 }
@@ -776,4 +792,17 @@ body:has(#videoPinMediaContainer .pinned-video-container) #videoMediaContainer >
 /* Panel chrome that used its own dark constant instead of a token. */
 .chat-container {
     --chat-toolbar-surface: rgba(255, 255, 255, 0.9);
+}
+
+/* The theme <select> carries legacy bootstrap dark classes (text-light bg-dark);
+   on the light settings panel it must read as a light control. */
+#mySettings #selectTheme {
+    background-color: #f3f5fc !important;
+    color: #14142b !important;
+    border: 1.5px solid rgba(20, 20, 43, 0.14) !important;
+}
+
+#mySettings #selectTheme option {
+    background: #ffffff;
+    color: #14142b;
 }

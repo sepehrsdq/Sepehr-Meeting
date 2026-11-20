@@ -35,7 +35,7 @@ body {
     margin: 0;
     min-height: 100vh;
     font:
-        16px/1.6 'IBM Plex Sans',
+        16px/1.6 IRANSans,
         system-ui,
         sans-serif;
     background: var(--bg);
@@ -51,7 +51,7 @@ body {
     margin: 0 auto;
     padding: 20px 20px 0;
     font:
-        600 1rem 'Montserrat',
+        600 1rem IRANSans,
         system-ui,
         sans-serif;
 }
@@ -65,7 +65,7 @@ main {
 h1,
 h2,
 h3 {
-    font-family: 'Montserrat', system-ui, sans-serif;
+    font-family: IRANSans, system-ui, sans-serif;
 }
 
 h1 {
@@ -106,7 +106,7 @@ a {
     background: var(--accent);
     color: var(--accent-text);
     font:
-        600 0.95rem 'Montserrat',
+        600 0.95rem IRANSans,
         system-ui,
         sans-serif;
 }

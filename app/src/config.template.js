@@ -34,7 +34,7 @@ const splitChar = ',';
 const PLATFORM = os.platform();
 const IS_DOCKER = fs.existsSync('/.dockerenv');
 const ENVIRONMENT = process.env.NODE_ENV || 'development';
-const ANNOUNCED_IP = process.env.SFU_ANNOUNCED_IP || '';
+const ANNOUNCED_IP = process.env.SFU_ANNOUNCED_IP || process.env.ANNOUNCED_IP || '';
 const LISTEN_IP = process.env.SFU_LISTEN_IP || '0.0.0.0';
 const IPv4 = getIPv4();
 
@@ -1647,7 +1647,7 @@ module.exports = {
                 videoEffects: process.env.SHOW_VIDEO_EFFECTS !== 'false', // face accessories and filters, processed locally in the browser
                 roomBackground: process.env.SHOW_ROOM_BACKGROUND !== 'false', // per-user image behind the video grid, stored only in the browser
                 customNoiseSuppression: process.env.CUSTOM_NOISE_SUPPRESSION_ENABLED !== 'false',
-                customNoiseSuppressionDefault: process.env.CUSTOM_NOISE_SUPPRESSION_DEFAULT !== 'false', // initial state, users can still toggle it
+                customNoiseSuppressionDefault: process.env.CUSTOM_NOISE_SUPPRESSION_DEFAULT === 'true', // initial state, users can still toggle it
             },
 
             // Video controls for producer (local user)
@@ -2118,42 +2118,20 @@ module.exports = {
          * - https://mediasoup.discourse.group/t/mediasoup-3-17-0-released/6805
          */
         webRtcServerActive: process.env.SFU_SERVER === 'true', // Enable if SFU_SERVER=true
+        // ICE (STUN) servers handed to browser transports. Clients gather
+        // server-reflexive candidates in addition to the announced host ones,
+        // which rescues ICE on NAT'd or multi-adapter networks.
+        // Env: STUN_SERVERS="stun:host1:3478,stun:host2:3478" (empty disables).
+        iceServers: (process.env.STUN_SERVERS ?? 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302')
+            .split(',')
+            .map((url) => url.trim())
+            .filter(Boolean)
+            .map((url) => ({ urls: url })),
         webRtcServerOptions: {
-            // Network interfaces and ports for ICE candidates
-            listenInfos: [
-                /**
-                 * UDP Configuration
-                 * Preferred for media transport (lower latency)
-                 * Kubernetes implications:
-                 * - Each Pod needs unique ports if sharing host network
-                 * - Consider using hostPort when not using LoadBalancer
-                 */
-                {
-                    protocol: 'udp',
-                    ip: LISTEN_IP, // Local IP to bind to
-                    announcedAddress: IPv4, // Public IP sent to clients
-                    portRange: {
-                        min: RTC_MIN_PORT,
-                        max: RTC_MIN_PORT + NUM_WORKERS, // Port range per worker
-                    },
-                },
-                /**
-                 * TCP Configuration
-                 * Fallback for restrictive networks (higher latency)
-                 * Kubernetes implications:
-                 * - Helps with networks blocking UDP
-                 * - May require separate Service definition in k8s
-                 */
-                {
-                    protocol: 'tcp',
-                    ip: LISTEN_IP,
-                    announcedAddress: IPv4,
-                    portRange: {
-                        min: RTC_MIN_PORT,
-                        max: RTC_MIN_PORT + NUM_WORKERS,
-                    },
-                },
-            ],
+            // Network interfaces and ports for ICE candidates.
+            // Every local IPv4 is announced (udp + tcp) so clients on any of the
+            // machine's networks find a reachable candidate; ANNOUNCED_IP pins it.
+            listenInfos: [...buildRtcListenInfos(RTC_MIN_PORT + NUM_WORKERS)],
         },
 
         /**
@@ -2173,39 +2151,10 @@ module.exports = {
          * - More resilient to Pod restarts
          */
         webRtcTransport: {
-            // Network interfaces for media transmission
-            listenInfos: [
-                /**
-                 * UDP Transport Settings
-                 * Kubernetes implications:
-                 * - Needs hostNetwork or privileged Pod for port access
-                 * - Consider port range size based on expected scale
-                 */
-                {
-                    protocol: 'udp',
-                    ip: LISTEN_IP,
-                    announcedAddress: IPv4,
-                    portRange: {
-                        min: RTC_MIN_PORT,
-                        max: RTC_MAX_PORT, // Wider range than WebRtcServer
-                    },
-                },
-                /**
-                 * TCP Transport Settings
-                 * Kubernetes implications:
-                 * - Less efficient but more compatible
-                 * - May require different Service configuration
-                 */
-                {
-                    protocol: 'tcp',
-                    ip: LISTEN_IP,
-                    announcedAddress: IPv4,
-                    portRange: {
-                        min: RTC_MIN_PORT,
-                        max: RTC_MAX_PORT,
-                    },
-                },
-            ],
+            // Network interfaces for media transmission.
+            // Every local IPv4 is announced (udp + tcp) so clients on any of the
+            // machine's networks find a reachable candidate; ANNOUNCED_IP pins it.
+            listenInfos: [...buildRtcListenInfos(RTC_MAX_PORT)],
 
             iceConsentTimeout: 35, // Timeout for ICE consent (seconds)
 
@@ -2256,6 +2205,61 @@ function getIPv4() {
         default:
             return getLocalIPv4();
     }
+}
+
+/**
+ * Detect every usable local IPv4 address
+ * --------------------------------------
+ * Machines often have several adapters (Wi-Fi, Ethernet, hotspot, WSL/Hyper-V,
+ * hosted routers). mediasoup announces ICE candidates from listenInfos, so
+ * announcing a single guessed IP makes clients on any other network fail ICE
+ * ("add a STUN server"). Announcing every local IPv4 (plus loopback for
+ * same-host testing) lets the browser pick the one it can actually reach.
+ */
+function getLocalIPv4List() {
+    if (ANNOUNCED_IP) return [ANNOUNCED_IP];
+
+    const addresses = new Set();
+    if (ENVIRONMENT === 'development' && IS_DOCKER) {
+        addresses.add('127.0.0.1');
+    }
+    for (const ifaceAddresses of Object.values(os.networkInterfaces())) {
+        for (const addr of ifaceAddresses || []) {
+            if (addr.family !== 'IPv4' || addr.internal) continue;
+            if (addr.address.startsWith('169.254.')) continue; // link-local APIPA
+            addresses.add(addr.address);
+        }
+    }
+    if (addresses.size === 0) addresses.add(getLocalIPv4() || '127.0.0.1');
+
+    // Cap the candidate count so SDP stays small on adapter-heavy machines
+    return [...addresses].slice(0, 8);
+}
+
+/**
+ * Build mediasoup listenInfos
+ * ---------------------------
+ * One UDP + one TCP entry per announced address, so every local network gets
+ * a matching ICE candidate. An explicit ANNOUNCED_IP yields a single pair.
+ */
+function buildRtcListenInfos(maxPort = RTC_MAX_PORT) {
+    const announced = getLocalIPv4List();
+    const infos = [];
+    for (const address of announced) {
+        infos.push({
+            protocol: 'udp',
+            ip: LISTEN_IP,
+            announcedAddress: address,
+            portRange: { min: RTC_MIN_PORT, max: maxPort },
+        });
+        infos.push({
+            protocol: 'tcp',
+            ip: LISTEN_IP,
+            announcedAddress: address,
+            portRange: { min: RTC_MIN_PORT, max: maxPort },
+        });
+    }
+    return infos;
 }
 
 /**

@@ -1,0 +1,1140 @@
+/* ==========================================================================
+   SettingsPanel.css — بازطراحی پنل «تنظیمات» اتاق
+   لایهٔ روییِ Room.css / RTL.css است و از توکن‌های سامانه (--sp-*) استفاده می‌کند.
+   جهت‌گیری کاملِ RTL، حرکت‌های سبک و سطح‌بندی روشن.
+   ========================================================================== */
+
+#mySettings {
+    --stx-radius-xl: 22px;
+    --stx-radius-lg: 16px;
+    --stx-radius: 12px;
+    --stx-radius-sm: 9px;
+
+    --stx-ink: var(--sp-ink, #14142b);
+    --stx-ink-soft: var(--sp-ink-soft, #2b2c4a);
+    --stx-muted: var(--sp-muted, #5a6079);
+    --stx-faint: var(--sp-faint, #8a90a8);
+
+    --stx-line: var(--sp-line, rgba(20, 20, 43, 0.08));
+    --stx-line-strong: var(--sp-line-strong, rgba(20, 20, 43, 0.14));
+
+    --stx-surface: var(--sp-white, #fff);
+    --stx-canvas: var(--sp-tint-2, #f8fafc);
+    --stx-tint: var(--sp-tint, #f6f5ff);
+
+    --stx-primary: var(--sp-indigo, #6366f1);
+    --stx-primary-deep: var(--sp-indigo-deep, #4338ca);
+    --stx-primary-soft: rgba(99, 102, 241, 0.1);
+    --stx-primary-line: rgba(99, 102, 241, 0.24);
+
+    --stx-ok: var(--sp-emerald, #059669);
+    --stx-warn: var(--sp-amber, #d97706);
+    --stx-danger: var(--sp-rose, #e11d48);
+
+    --stx-shadow-1: var(--sp-shadow-sm, 0 2px 4px rgba(20, 20, 43, 0.04), 0 8px 24px -12px rgba(20, 20, 43, 0.16));
+    --stx-shadow-2: var(--sp-shadow, 0 4px 10px rgba(20, 20, 43, 0.04), 0 24px 60px -24px rgba(20, 20, 43, 0.22));
+    --stx-shadow-3: var(--sp-shadow-lg, 0 8px 18px rgba(20, 20, 43, 0.05), 0 48px 110px -40px rgba(67, 56, 202, 0.32));
+
+    --stx-ease: var(--sp-ease, cubic-bezier(0.22, 1, 0.36, 1));
+    --stx-fast: 160ms;
+    --stx-mid: 240ms;
+
+    direction: rtl;
+    width: min(1180px, calc(100vw - 48px));
+    height: min(86vh, 880px);
+    min-height: 0;
+    max-height: 86vh;
+    padding: 0;
+    overflow: hidden;
+    border-radius: var(--stx-radius-xl);
+    border: 1px solid var(--stx-line);
+    background: var(--stx-surface);
+    box-shadow: var(--stx-shadow-3);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+
+    /* سوئیچ‌های اتاق، هم‌رنگ برند */
+    --room-switch-accent: var(--sp-indigo, #6366f1);
+    --room-switch-ink: #ffffff;
+}
+
+#mySettings,
+#mySettings * {
+    direction: rtl;
+    box-sizing: border-box;
+}
+
+/* Room.css's generic `.show { display:block !important }` breaks the column layout on open,
+   so the panel never got a constrained height and could not scroll. */
+#mySettings.show {
+    display: flex !important;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* ── هدر ─────────────────────────────────────────────────────────────── */
+#mySettingsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    height: auto;
+    padding: 12px 14px 12px 18px;
+    margin: 0;
+    border-bottom: 1px solid var(--stx-line);
+    background: linear-gradient(180deg, #ffffff, var(--stx-canvas));
+    cursor: move;
+}
+
+.settings-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex: 1;
+}
+
+.settings-head__mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--stx-primary-soft);
+    color: var(--stx-primary-deep);
+    border: 1px solid var(--stx-primary-line);
+    flex: 0 0 auto;
+}
+
+.settings-head__mark i {
+    font-size: 1rem;
+    margin: 0;
+    padding: 0;
+    color: inherit;
+}
+
+.settings-head__copy {
+    min-width: 0;
+}
+
+.settings-head__title {
+    margin: 0;
+    font-size: 1.06rem;
+    font-weight: 800;
+    color: var(--stx-ink);
+    line-height: 1.5;
+}
+
+.settings-head__sub {
+    margin: 2px 0 0;
+    padding: 0 !important;
+    display: block !important;
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--stx-faint);
+    line-height: 1.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* دکمه‌های هدر */
+#mySettings #mySettingsCloseBtn,
+#mySettings #mySettingsNavToggleBtn {
+    flex: 0 0 auto;
+    float: none;
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--stx-muted);
+    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        background var(--stx-fast) ease,
+        color var(--stx-fast) ease,
+        border-color var(--stx-fast) ease,
+        transform var(--stx-fast) ease;
+}
+
+#mySettings #mySettingsCloseBtn:hover {
+    background: rgba(225, 29, 72, 0.08);
+    border-color: rgba(225, 29, 72, 0.2);
+    color: var(--stx-danger);
+    transform: rotate(90deg);
+}
+
+#mySettings #mySettingsNavToggleBtn {
+    display: none;
+}
+
+#mySettings #mySettingsNavToggleBtn:hover {
+    background: var(--stx-tint);
+    border-color: var(--stx-primary-line);
+    color: var(--stx-primary-deep);
+}
+
+/* ── چیدمان اصلی ─────────────────────────────────────────────────────── */
+#mySettings .mySettingsMain {
+    display: grid;
+    grid-template-columns: 272px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1;
+    min-height: 0;
+    padding: 14px;
+    gap: 14px;
+    overflow: hidden;
+    background: var(--stx-surface);
+}
+
+/* ── ناوبری ──────────────────────────────────────────────────────────── */
+#mySettings #mySettingsNav.tab {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid var(--stx-line);
+    border-radius: var(--stx-radius-lg);
+    background: var(--stx-canvas);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: auto;
+    animation: stxNavIn 420ms var(--stx-ease) both;
+}
+
+#mySettings #mySettingsNav::-webkit-scrollbar {
+    width: 6px;
+}
+
+#mySettings #mySettingsNav::-webkit-scrollbar-thumb {
+    background: var(--stx-line-strong);
+    border-radius: 99px;
+}
+
+#mySettings .settings-nav-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin: 0 0 8px;
+}
+
+#mySettings .settings-nav-search i {
+    position: absolute;
+    inset-inline-start: 10px;
+    inset-inline-end: auto;
+    margin: 0;
+    padding: 0;
+    font-size: 0.78rem;
+    color: var(--stx-faint);
+    pointer-events: none;
+}
+
+#mySettings .settings-nav-search input {
+    width: 100%;
+    height: 38px;
+    padding: 0 34px 0 10px;
+    border: 1px solid var(--stx-line);
+    border-radius: var(--stx-radius-sm);
+    background: var(--stx-surface) !important;
+    color: var(--stx-ink);
+    font-family: inherit;
+    font-size: 0.82rem;
+    box-shadow: none;
+    transition:
+        border-color var(--stx-fast) ease,
+        box-shadow var(--stx-fast) ease;
+}
+
+#mySettings .settings-nav-search input::placeholder {
+    color: var(--stx-faint);
+}
+
+#mySettings .settings-nav-search input:focus {
+    outline: none;
+    border-color: var(--stx-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
+}
+
+#mySettings .settings-nav-label {
+    margin: 12px 8px 4px;
+    padding: 0;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--stx-faint);
+    background: transparent;
+}
+
+#mySettings .settings-nav-empty {
+    padding: 10px;
+    font-size: 0.76rem;
+    color: var(--stx-faint);
+    text-align: center;
+}
+
+/* آیتم‌های ناوبری */
+#mySettings #mySettingsNav .tablinks {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 40px;
+    margin: 0;
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--stx-radius-sm);
+    background: transparent;
+    color: var(--stx-ink-soft);
+    font-family: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-align: right;
+    cursor: pointer;
+    transition:
+        background var(--stx-fast) ease,
+        color var(--stx-fast) ease,
+        border-color var(--stx-fast) ease,
+        transform var(--stx-fast) ease;
+    animation: stxItemIn 360ms var(--stx-ease) both;
+}
+
+/* آیکن هر آیتم — گلیف Font Awesome روی ::before خودِ دکمه است */
+#mySettings #mySettingsNav .tablinks::before {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    margin: 0;
+    padding: 0;
+    border-radius: 8px;
+    /* font-family روی خود دکمه بازنویسی می‌شود؛ گلیف باید صریحاً از FA بیاید */
+    font-family: 'Font Awesome 6 Free', 'Font Awesome 5 Free', 'FontAwesome' !important;
+    font-weight: 900 !important;
+    font-size: 0.78rem;
+    line-height: 1;
+    color: var(--stx-muted);
+    background: rgba(20, 20, 43, 0.045);
+    transition:
+        background var(--stx-fast) ease,
+        color var(--stx-fast) ease;
+}
+
+/* نوار اکسنت آیتم فعال */
+#mySettings #mySettingsNav .tablinks::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    width: 3px;
+    height: 0;
+    border-radius: 99px;
+    background: var(--stx-primary);
+    transform: translateY(-50%);
+    transition: height var(--stx-mid) var(--stx-ease);
+}
+
+#mySettings #mySettingsNav .tablinks .tabButtonText {
+    display: block;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    min-width: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: transparent;
+}
+
+#mySettings #mySettingsNav .tablinks:hover {
+    background: var(--stx-surface);
+    border-color: var(--stx-line);
+    color: var(--stx-primary-deep);
+    transform: translateX(-2px);
+}
+
+#mySettings #mySettingsNav .tablinks:hover::before {
+    background: var(--stx-primary-soft);
+    color: var(--stx-primary-deep);
+}
+
+#mySettings #mySettingsNav .tablinks.active {
+    background: var(--stx-surface);
+    border-color: var(--stx-primary-line);
+    color: var(--stx-primary-deep);
+    box-shadow: var(--stx-shadow-1);
+}
+
+#mySettings #mySettingsNav .tablinks.active::after {
+    height: 20px;
+}
+
+#mySettings #mySettingsNav .tablinks.active::before {
+    background: var(--stx-primary);
+    color: #fff;
+}
+
+#mySettings #mySettingsNav .tablinks:focus-visible {
+    outline: 2px solid var(--stx-primary);
+    outline-offset: 1px;
+}
+
+/* ── محتوا ───────────────────────────────────────────────────────────── */
+#mySettings .tabActions {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    margin: 0;
+    padding: 2px 4px 18px 2px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    border: 0;
+    background: transparent;
+}
+
+#mySettings .tabActions::-webkit-scrollbar {
+    width: 8px;
+}
+
+#mySettings .tabActions::-webkit-scrollbar-thumb {
+    background: var(--stx-line-strong);
+    border-radius: 99px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+#mySettings .tabcontent {
+    padding: 0 4px;
+    direction: rtl;
+    text-align: right;
+    animation: stxPaneIn 300ms var(--stx-ease) both;
+}
+
+#mySettings .tabcontent > * + * {
+    margin-top: 14px;
+}
+
+/* سربرگ بخش‌ها → کارت */
+#mySettings .settings-section-intro {
+    margin: 0 0 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--stx-line);
+    border-inline-start: 3px solid var(--stx-primary);
+    border-radius: var(--stx-radius);
+    background: var(--stx-canvas);
+}
+
+#mySettings .settings-section-intro h3,
+#mySettings .settings-section-intro h4 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--stx-ink);
+    text-align: right;
+}
+
+#mySettings .settings-section-intro p {
+    display: block;
+    margin: 0;
+    padding: 0;
+    font-size: 0.8rem;
+    line-height: 1.9;
+    color: var(--stx-muted);
+    text-align: right;
+}
+
+/* تیترهای داخل تب‌ها */
+#mySettings .tabcontent h3:not(.wb-shortcuts-title),
+#mySettings .tabcontent h4 {
+    text-align: right;
+    color: var(--stx-ink);
+}
+
+#mySettings .tabcontent hr {
+    height: 1px;
+    margin: 16px 0;
+    border: 0;
+    background: var(--stx-line);
+}
+
+/* جدول تنظیمات → ردیف‌های تمیز */
+#mySettings .settingsTable {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: right;
+}
+
+#mySettings .settingsTable td,
+#mySettings .settingsTable th {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--stx-line);
+    vertical-align: middle;
+    text-align: right;
+}
+
+#mySettings .settingsTable tr:last-child td {
+    border-bottom: 0;
+}
+
+#mySettings .settingsTable td:first-child {
+    font-weight: 600;
+    color: var(--stx-ink-soft);
+}
+
+/* جدول میانبرها */
+#mySettings .shortcutsTable {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: right;
+}
+
+#mySettings .shortcutsTable th,
+#mySettings .shortcutsTable td {
+    padding: 9px 10px;
+    text-align: right;
+    border-bottom: 1px solid var(--stx-line);
+    color: var(--stx-ink-soft);
+}
+
+#mySettings .shortcutsTable thead th,
+#mySettings .shortcutsTable tr:first-child th {
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: var(--stx-muted);
+    background: transparent;
+}
+
+#mySettings .shortcutsTable tr:nth-child(even) {
+    background: var(--stx-canvas) !important;
+}
+
+#mySettings .shortcutsTable kbd,
+#mySettings .shortcutsTable .kbd {
+    border-radius: 6px;
+    border: 1px solid var(--stx-line-strong);
+    background: var(--stx-surface);
+    color: var(--stx-ink);
+    padding: 2px 7px;
+    font-size: 0.78rem;
+}
+
+/* فرم‌ها */
+#mySettings input[type='text'],
+#mySettings input[type='url'],
+#mySettings input[type='password'],
+#mySettings input[type='number'],
+#mySettings input[type='email'],
+#mySettings input[type='tel'],
+#mySettings select,
+#mySettings .form-control {
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid var(--stx-line-strong);
+    border-radius: var(--stx-radius-sm);
+    background-color: var(--stx-surface) !important;
+    color: var(--stx-ink);
+    font-family: inherit;
+    font-size: 0.88rem;
+    box-shadow: none;
+    transition:
+        border-color var(--stx-fast) ease,
+        box-shadow var(--stx-fast) ease;
+}
+
+/* فلش سفارشی انتخابگرها — سمت انتهای خط در RTL */
+#mySettings select,
+#mySettings .form-select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-inline: 12px 34px;
+    background-color: var(--stx-surface) !important;
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%235a6079'%3E%3Cpath d='M8 11.2 2.8 6h10.4z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: left 12px center !important;
+    background-size: 12px 12px !important;
+}
+
+#mySettings input:focus,
+#mySettings select:focus,
+#mySettings .form-control:focus {
+    outline: none;
+    border-color: var(--stx-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
+}
+
+#mySettings select {
+    margin-top: 8px;
+    max-width: 100%;
+    height: 40px;
+    cursor: pointer;
+}
+
+#mySettings :is(input[type='url'], input[type='email'], input[type='tel'], .ltr, [dir='ltr']) {
+    direction: ltr;
+    text-align: left;
+}
+
+/* دکمه‌های داخل محتوا */
+#mySettings .tabcontent button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: auto;
+    min-height: 40px;
+    margin: 0;
+    padding: 8px 14px;
+    border: 1px solid var(--stx-line);
+    border-radius: var(--stx-radius-sm);
+    background: var(--stx-surface);
+    color: var(--stx-ink-soft);
+    font-family: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-align: right;
+    cursor: pointer;
+    transition:
+        background var(--stx-fast) ease,
+        border-color var(--stx-fast) ease,
+        color var(--stx-fast) ease,
+        box-shadow var(--stx-fast) ease,
+        transform var(--stx-fast) ease;
+}
+
+#mySettings .tabcontent button:hover {
+    background: var(--stx-tint);
+    border-color: var(--stx-primary-line);
+    color: var(--stx-primary-deep);
+}
+
+#mySettings .tabcontent button:focus-visible {
+    outline: 2px solid var(--stx-primary);
+    outline-offset: 1px;
+}
+
+#mySettings .tabcontent button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+#mySettings .tabcontent button > i,
+#mySettings .tabcontent button > p {
+    margin: 0;
+    padding: 0;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* دکمه‌های آیکنی */
+#mySettings .settings-icon-btn {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    justify-content: center;
+    border-radius: var(--stx-radius-sm);
+    background: var(--stx-canvas);
+}
+
+#mySettings .settings-icon-btn i {
+    margin: 0;
+    padding: 0;
+}
+
+/* مقدمهٔ بخش‌ها و کارت‌های داخلی */
+#mySettings .profile-card,
+#mySettings .recording-card,
+#mySettings .rtmp-section,
+#mySettings .sip-card,
+#mySettings [class$='-card'] {
+    border-radius: var(--stx-radius);
+    border: 1px solid var(--stx-line);
+    box-shadow: none;
+}
+
+/* سوئیچ‌ها — هم‌رنگ برند */
+#mySettings :is(input[type='checkbox'], input[type='radio']):checked + .slider,
+#mySettings .switch input:checked + .slider {
+    background-color: var(--stx-primary) !important;
+}
+
+/* نشانگرهای وضعیت */
+#mySettings .badge,
+#mySettings .profile-role-badge {
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+/* ── انیمیشن‌ها ──────────────────────────────────────────────────────── */
+@keyframes stxNavIn {
+    from {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes stxItemIn {
+    from {
+        opacity: 0;
+        transform: translateX(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes stxPaneIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ورود پله‌ای آیتم‌های ناوبری */
+#mySettings #mySettingsNav .tablinks:nth-of-type(1) { animation-delay: 20ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(2) { animation-delay: 40ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(3) { animation-delay: 60ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(4) { animation-delay: 80ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(5) { animation-delay: 100ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(6) { animation-delay: 120ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(7) { animation-delay: 140ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(8) { animation-delay: 160ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(9) { animation-delay: 180ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(10) { animation-delay: 200ms; }
+#mySettings #mySettingsNav .tablinks:nth-of-type(n + 11) { animation-delay: 220ms; }
+
+/* ردیف‌های «عنوان + توضیح» داخل جدول تنظیمات */
+#mySettings .title {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    text-align: right;
+    color: var(--stx-ink-soft);
+}
+
+#mySettings .title > i,
+#mySettings .title > span,
+#mySettings .title > p {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#mySettings .title > i {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    border-radius: 8px;
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--stx-primary-deep);
+    font-size: 0.76rem;
+}
+
+#mySettings .settings-option-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+#mySettings .settings-option-copy strong {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--stx-ink);
+}
+
+#mySettings .settings-option-copy small {
+    font-size: 0.75rem;
+    line-height: 1.8;
+    color: var(--stx-muted);
+}
+
+/* ── کارت‌های داخل تب‌ها ─────────────────────────────────────────────── */
+#mySettings .settings-card {
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--stx-line);
+    border-radius: var(--stx-radius);
+    background: var(--stx-surface);
+}
+
+#mySettings .settings-card-title {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 9px;
+    margin: 0 0 12px;
+    padding: 0;
+    font-size: 0.94rem;
+    font-weight: 800;
+    color: var(--stx-ink);
+    text-align: right;
+    border: 0;
+    background: transparent;
+}
+
+#mySettings .settings-card-title i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin: 0;
+    padding: 0;
+    border-radius: 8px;
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--stx-primary-deep);
+    font-size: 0.76rem;
+}
+
+#mySettings .settings-field {
+    margin-bottom: 10px;
+}
+
+#mySettings .settings-field:last-child {
+    margin-bottom: 0;
+}
+
+#mySettings .settings-field .title {
+    margin-bottom: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+#mySettings .settings-field .title p {
+    display: inline-block;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+}
+
+/* کلاس‌های روشنایی بوت‌استرپ داخل پنل — با تم روشن هم‌تراز می‌شوند */
+#mySettings :is(.text-light, .text-white) {
+    color: var(--stx-ink) !important;
+}
+
+#mySettings :is(.bg-dark, .bg-black) {
+    background-color: var(--stx-surface) !important;
+}
+
+#mySettings .form-select {
+    width: 100%;
+    max-width: 100%;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid var(--stx-line);
+    border-radius: var(--stx-radius-sm);
+    background-color: var(--stx-surface);
+    color: var(--stx-ink);
+    font-size: 0.88rem;
+    box-shadow: none;
+}
+
+#mySettings .form-select:focus {
+    border-color: var(--stx-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
+}
+
+/* سوئیچ‌ها */
+#mySettings .form-check.form-switch {
+    padding-inline-start: 0;
+    margin: 0;
+    min-height: 28px;
+}
+
+#mySettings .form-switch.form-switch-md .form-check-input {
+    width: 58px;
+    height: 28px;
+    margin: 0;
+    float: none;
+    cursor: pointer;
+    border: 1px solid var(--stx-line-strong);
+    box-shadow: none;
+    transition:
+        background-color var(--stx-fast) ease,
+        border-color var(--stx-fast) ease,
+        box-shadow var(--stx-fast) ease;
+}
+
+#mySettings .form-switch.form-switch-md .form-check-input:checked {
+    background-color: var(--stx-primary);
+    border-color: var(--stx-primary);
+}
+
+#mySettings .form-check-input:focus {
+    outline: none;
+    border-color: var(--stx-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+#mySettings .form-switch.form-switch-md::after {
+    font-size: 0.62rem;
+    font-weight: 700;
+}
+
+/* ── مقادیر فنی / لاتین ───────────────────────────────────────────────── */
+#mySettings :is(
+        #networkSentValue,
+        #networkReceivedValue,
+        #networkPacketLossValue,
+        #networkJitterValue,
+        #networkRttValue,
+        #recordingStatus
+    ) {
+    display: inline-block;
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    font-size: 0.86rem;
+    color: var(--stx-ink);
+}
+
+#mySettings :is(#sipWsServer, #sipDomain, #sipUsername, #sipPassword, #sipDisplayName, #roomId) {
+    direction: ltr;
+    text-align: left;
+    unicode-bidi: isolate;
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    letter-spacing: 0.01em;
+}
+
+#mySettings .sip-account-summary {
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-size: 0.76rem;
+    color: var(--stx-faint);
+}
+
+/* ── بخش «سازگاری پیشرفته» تلفن ───────────────────────────────────────── */
+#mySettings .sip-advanced-details {
+    margin-top: 14px;
+    padding: 0;
+    border: 1px solid var(--stx-line);
+    border-radius: var(--stx-radius);
+    background: var(--stx-canvas);
+}
+
+#mySettings .sip-advanced-details > summary {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--stx-radius);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--stx-ink-soft);
+    cursor: pointer;
+    list-style: none;
+    transition: background var(--stx-fast) ease, color var(--stx-fast) ease;
+}
+
+#mySettings .sip-advanced-details > summary:hover {
+    background: var(--stx-tint);
+    color: var(--stx-primary-deep);
+}
+
+/* نشانگر باز/بسته — یک شِورون به‌جای +/× پیش‌فرض */
+#mySettings #tabSipPhone details > summary::after {
+    content: none;
+}
+
+#mySettings #tabSipPhone details > summary::before {
+    content: '\f078';
+    flex: 0 0 auto;
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 0.66rem;
+    color: var(--stx-faint);
+    transition: transform var(--stx-fast) ease;
+}
+
+#mySettings #tabSipPhone details[open] > summary::before {
+    transform: rotate(180deg);
+}
+
+#mySettings .sip-advanced-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+#mySettings .sip-advanced-details[open] > summary {
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+    border-bottom: 1px solid var(--stx-line);
+    margin-bottom: 0;
+}
+
+#mySettings .sip-advanced-details .settingsTable {
+    margin: 10px 14px 14px !important;
+}
+
+/* انتخابگر رنگ در تم سفارشی */
+#mySettings input[type='color'] {
+    width: 46px;
+    min-width: 46px;
+    height: 36px;
+    padding: 3px;
+    border: 1px solid var(--stx-line-strong);
+    border-radius: 9px;
+    background: var(--stx-surface) !important;
+    cursor: pointer;
+}
+
+/* ── موبایل ──────────────────────────────────────────────────────────── */
+@media screen and (max-width: 830px) {
+    #mySettings {
+        position: fixed;
+        inset: 0;
+        /* JS sets inline top/left: 50% when it opens the panel — override it so the
+           full-screen mobile sheet really starts at the top edge. */
+        top: 0 !important;
+        left: 0 !important;
+        width: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+        transform: none;
+    }
+
+    #mySettings .mySettingsMain {
+        display: block;
+        padding: 10px;
+    }
+
+    #mySettings #mySettingsNavToggleBtn {
+        display: inline-flex;
+        position: static;
+        inset: auto;
+        order: -1;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: var(--stx-tint);
+        border: 1px solid var(--stx-line);
+        color: var(--stx-ink-soft);
+    }
+
+    #mySettings .settings-head__mark {
+        display: none;
+    }
+
+    #mySettings #mySettingsNav.tab {
+        position: fixed;
+        inset-block: 0;
+        inset-inline-start: 0;
+        inset-inline-end: auto;
+        width: min(320px, 84vw);
+        max-height: none;
+        border-radius: 0;
+        border: 0;
+        border-inline-end: 1px solid var(--stx-line);
+        box-shadow: var(--stx-shadow-3);
+        z-index: 5;
+        transform: translateX(100%);
+        transition: transform var(--stx-mid) var(--stx-ease);
+        animation: none;
+    }
+
+    #mySettings.settings-nav-open #mySettingsNav.tab {
+        transform: translateX(0);
+    }
+
+    #mySettings .settings-nav-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        border: 0;
+        background: rgba(20, 20, 43, 0.32);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--stx-mid) ease;
+    }
+
+    #mySettings.settings-nav-open .settings-nav-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    #mySettings .tabActions {
+        height: calc(100dvh - 68px);
+        padding: 0 2px 16px;
+    }
+
+    #mySettings .settings-head__sub {
+        display: none !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #mySettings,
+    #mySettings *,
+    #mySettings *::before,
+    #mySettings *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* ── سرکوب صدا: برچسب خوانا + سوییچ جمع‌وجور ─────────────────────────── */
+/* JS used to paint the label lime/white for the dark skin, which made it
+   invisible on the light settings card. The state now lives in a class. */
+#mySettings #labelNoiseSuppression {
+    color: var(--stx-ink) !important;
+    transition: color 0.18s ease;
+}
+
+#mySettings #labelNoiseSuppression.is-on {
+    color: var(--room-switch-accent, var(--stx-primary)) !important;
+    font-weight: 600;
+}
+
+/* Keep the OFF/ON caption inside the track: without a fixed width the flex
+   container can stretch across the row and split the caption from the knob. */
+#mySettings .settingsTable .form-check.form-switch.form-switch-md {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 58px;
+    width: 58px;
+}
+
+/* The unchecked track needs real contrast on a white card. */
+#mySettings .form-switch.form-switch-md .form-check-input:not(:checked) {
+    background-color: color-mix(in srgb, var(--stx-ink) 22%, #ffffff);
+    border-color: color-mix(in srgb, var(--stx-ink) 30%, #ffffff);
+}

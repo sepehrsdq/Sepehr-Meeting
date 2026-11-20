@@ -130,7 +130,10 @@ describe('RNNoise worklet with the real wasm binary', () => {
 
 function createProcessorEnvironment(overrides = {}) {
     const nodes = [];
-    const elements = { labelNoiseSuppression: { style: {} }, switchNoiseSuppression: {} };
+    const elements = {
+        labelNoiseSuppression: { style: {}, classList: { toggle() {}, remove() {} } },
+        switchNoiseSuppression: {},
+    };
     const makeStream = (enabled = true) => {
         const track = {
             enabled,

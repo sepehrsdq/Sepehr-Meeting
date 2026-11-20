@@ -98,7 +98,7 @@ describe('toast hover timers with native translation', () => {
         client.sound = () => {};
         client.speechInMessages = true;
         window.renderRoomTemplate = () => '<span>Accepted</span>';
-        window.BRAND = { app: { language: 'en', translationMode: 'native' } };
+        window.BRAND = { app: { language: 'it', translationMode: 'native' } };
         window.fetch = async () => ({
             ok: true,
             json: async () => JSON.parse(fs.readFileSync(path.join(root, 'public/lang/it.json'), 'utf8')),
@@ -181,6 +181,10 @@ describe('toast hover timers with native translation', () => {
             dom.window[name] = checkbox;
         }
         const source = readScript('Room.js');
+        const labelHelperStart = source.indexOf('function syncNoiseSuppressionLabel');
+        const labelHelperEnd = source.indexOf('\nfunction getHideMeActive', labelHelperStart);
+        assert.ok(labelHelperStart >= 0 && labelHelperEnd > labelHelperStart);
+        dom.window.eval(source.slice(labelHelperStart, labelHelperEnd));
         const start = source.indexOf('    switchDominantSpeakerFocus.onchange =');
         const end = source.indexOf('    switchPushToTalk.onchange =', start);
         assert.ok(start >= 0 && end > start);
@@ -193,13 +197,13 @@ describe('toast hover timers with native translation', () => {
         client.userLog('info', 'Previous notice');
         checkbox.checked = true;
         checkbox.dispatchEvent(new dom.window.Event('change'));
-        assert.equal(options.title, 'Noise suppression enabled');
+        assert.equal(options.title, 'سرکوب صدا روشن شد');
         assert.equal(options.timer, 1800);
         assert.equal(options.timerProgressBar, false);
         assert.equal(dom.window.localStorageSettings.mic_noise_suppression, true);
         checkbox.checked = false;
         checkbox.dispatchEvent(new dom.window.Event('change'));
-        assert.equal(options.title, 'Noise suppression disabled');
+        assert.equal(options.title, 'سرکوب صدا خاموش شد');
         assert.equal(shown.length, 3);
         assert.equal(dom.window.localStorageSettings.mic_noise_suppression, false);
     });
@@ -362,7 +366,8 @@ describe('toast hover timers with native translation', () => {
         window.eval(`${source.slice(start, end)}\nwindow.toggleLockUnlockWhiteboard = toggleLockUnlockWhiteboard;`);
         window.toggleLockUnlockWhiteboard();
         assert.equal(window.wbIsLock, false);
-        assert.match(options.title, /whiteboard is unlocked/);
+        // Native translation is active (language: 'it'), so the toast shows the Italian text.
+        assert.match(options.title, /La lavagna è sbloccata/);
         assert.equal(options.position, 'top-end');
         assert.equal(options.icon, 'info');
         assert.equal(options.timer, 1800);
@@ -370,7 +375,7 @@ describe('toast hover timers with native translation', () => {
         assert.equal(actions[0].action, 'unlock');
         window.toggleLockUnlockWhiteboard();
         assert.equal(window.wbIsLock, true);
-        assert.match(options.title, /whiteboard is locked/);
+        assert.match(options.title, /La lavagna è bloccata/);
         assert.equal(options.icon, 'success');
         assert.equal(options.timer, 1800);
         assert.equal(options.timerProgressBar, false);

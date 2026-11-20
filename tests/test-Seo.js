@@ -2,12 +2,24 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const { buildRobotsTxt, buildSitemapXml, buildJsonLd } = require('../app/src/Seo');
+const { buildRobotsTxt, buildSitemapXml, buildJsonLd, resolvePublicBaseUrl, resolvePublicUrl } = require('../app/src/Seo');
 const HtmlInjector = require('../app/src/HtmlInjector');
 
 describe('test-Seo', function () {
     const landing = path.join(__dirname, '../public/views/landing.html');
     const room = path.join(__dirname, '../public/views/Room.html');
+
+    it('falls back to the public server URL when OG_URL is relative or empty', () => {
+        assert.strictEqual(resolvePublicBaseUrl('/', 'https://meet.example.org'), 'https://meet.example.org');
+        assert.strictEqual(resolvePublicBaseUrl('', 'https://meet.example.org/'), 'https://meet.example.org');
+        assert.strictEqual(resolvePublicBaseUrl('https://example.com/', 'https://meet.example.org'), 'https://example.com');
+    });
+
+    it('resolves relative OpenGraph assets against the public base URL', () => {
+        assert.strictEqual(resolvePublicUrl('/images/logo.svg', 'https://meet.example.org'), 'https://meet.example.org/images/logo.svg');
+        assert.strictEqual(resolvePublicUrl('images/logo.svg', 'https://meet.example.org/'), 'https://meet.example.org/images/logo.svg');
+        assert.strictEqual(resolvePublicUrl('https://cdn.example.org/i.png', 'https://meet.example.org'), 'https://cdn.example.org/i.png');
+    });
 
     it('robots.txt disallows private pages and advertises the sitemap', () => {
         const txt = buildRobotsTxt('https://example.com/');
@@ -51,6 +63,7 @@ describe('test-Seo', function () {
 
         assert.ok(html.includes('<link rel="canonical" href="https://example.com/" />'));
         assert.ok(html.includes('<meta property="og:url" content="https://example.com/" />'));
+        assert.ok(html.includes('<meta property="og:image" content="https://example.com/images/logo.svg" />'));
         assert.ok(!/{{(CANONICAL_URL|JSON_LD|OG_[A-Z_]+)}}/.test(html));
         const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
         assert.strictEqual(blocks.length, 1);

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="fa" dir="rtl">
     <head>
         <!-- Title and Icon -->
@@ -29,7 +29,7 @@
         <meta property="og:title" content="سامانه سپهر — جلسات تصویری سازمانی" />
         <meta property="og:description" content="سامانه سپهر؛ بستر جلسات تصویری سازمانی، امن و سریع. بدون نصب، مستقیماً در مرورگر و با میزبانی کامل در شبکه داخلی سازمان." />
         <meta property="og:image" content="/images/logo.svg" />
-        <meta property="og:url" content="/" />
+        <meta property="og:url" content="{{OG_URL}}" />
 
         <!-- StyleSheet -->
         <link rel="stylesheet" href="../css/Root.css" />
@@ -44,6 +44,11 @@
         <link rel="stylesheet" href="../css/VideoEffects.css" />
         <!-- Loaded last so the light surface wins over the in-room dark skin -->
         <link rel="stylesheet" href="../css/RoomLight.css" />
+
+        <!-- بازطراحی پنل تنظیمات — آخرین CSS تا روی Room.css / RoomLight.css / Bootstrap بنشیند -->
+        <link rel="stylesheet" href="../css/SettingsPanel.css" />
+        <!-- پالایش نوار ابزار پایین اتاق -->
+        <link rel="stylesheet" href="../css/RoomPolish.css" />
 
         <!-- https://cdnjs.com/libraries/font-awesome -->
 
@@ -173,6 +178,8 @@
         <script defer src="../js/RoomTemplate.js"></script>
         <script defer src="../js/NetworkStats.js"></script>
         <script defer src="../js/GifSearch.js"></script>
+        <!-- ES5 compatibility gate: replaces the old English "unsupported browser" dialog -->
+        <script defer src="../js/BrowserGate.js"></script>
         <script defer src="../js/RoomClient.js"></script>
         <script defer src="../js/SipPhone.js"></script>
         <script defer src="../js/WhipClient.js"></script>
@@ -643,6 +650,13 @@
 
         <section id="mySettings" class="fadein center hidden">
             <header id="mySettingsHeader">
+                <div class="settings-head">
+                    <span class="settings-head__mark" aria-hidden="true"><i class="fas fa-sliders"></i></span>
+                    <div class="settings-head__copy">
+                        <h2 class="settings-head__title">تنظیمات</h2>
+                        <p class="settings-head__sub">اتاق، دستگاه‌ها، ظاهر و نمایه</p>
+                    </div>
+                </div>
                 <button
                     id="mySettingsNavToggleBtn"
                     class="fa-solid fa-bars"
@@ -651,7 +665,7 @@
                     aria-controls="mySettingsNav"
                     aria-expanded="false"
                 ></button>
-                <button id="mySettingsCloseBtn" class="fas fa-times"></button>
+                <button id="mySettingsCloseBtn" class="fas fa-times" type="button" aria-label="بستن تنظیمات"></button>
             </header>
             <main class="mySettingsMain">
                 <button
@@ -4545,7 +4559,8 @@
 
         <template id="popupRecordingInfoTemplate">
             <div class="popup-template-copy popup-template-copy--left">
-                <span data-template-text="indicator"></span> <span data-template-text="recType"></span> اطلاعات ضبط:
+                <span data-template-text="indicator"></span>
+                <strong><span data-template-text="recType"></span> — اطلاعات ضبط</strong>
                 <div data-template-html="recordingInfo"></div>
                 <div data-template-text="recordingMsg"></div>
             </div>

@@ -31,7 +31,13 @@ class UIManager {
             isProcessing ? 'success' : 'info'
         );
 
-        this.elements.labelNoiseSuppression.style.color = noiseSuppressionEnabled ? 'lime' : 'white';
+        const noiseLabel = this.elements.labelNoiseSuppression;
+        if (noiseLabel) {
+            if (noiseLabel.classList && noiseLabel.classList.toggle) {
+                noiseLabel.classList.toggle('is-on', !!noiseSuppressionEnabled);
+            }
+            if (noiseLabel.style && noiseLabel.style.removeProperty) noiseLabel.style.removeProperty('color');
+        }
     }
 }
 

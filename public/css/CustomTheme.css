@@ -3,7 +3,7 @@
  * ============================================================
  * Design system (ui-ux-pro-max, Trust & Authority + Accessible):
  *   - Dark navy canvas with a single confident accent (sky/teal)
- *   - Typography: Vazirmatn variable (100-900) for Persian, IBM Plex Sans fallback
+ *   - Typography: IRANSans (Persian, FaNum digits) with system fallbacks
  *   - Motion: GSAP-driven, staggered, reduced-motion aware
  *   - RTL-first layout
  */
@@ -51,7 +51,7 @@ body.custom-theme {
         radial-gradient(900px 460px at -8% 108%, rgba(14, 165, 233, 0.06), transparent 58%),
         var(--sp-bg);
     color: var(--sp-text);
-    font-family: 'Vazirmatn', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+    font-family: IRANSans, 'Segoe UI', Tahoma, sans-serif;
     font-feature-settings: 'ss01';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;

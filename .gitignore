@@ -40,3 +40,11 @@ custom
 # python virtual environments
 .venv/
 venv/
+
+# local working docs (never commit)
+/doc/
+/AGENTS.md
+
+# offline browser installers (large binaries, deployed on the server)
+/public/download/*.exe
+/public/download/*.msi

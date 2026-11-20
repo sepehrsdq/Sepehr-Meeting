@@ -1,0 +1,409 @@
+/* ==========================================================================
+   RoomPolish.css — پالایش بصری نوار ابزار پایین اتاق (Room)
+   بعد از Room.css / RoomLight.css / VideoEffects.css / SettingsPanel.css
+   بارگذاری می‌شود تا آخرین حرف را بزند. فقط ظاهر؛ هیچ منطقی را تغییر نمی‌دهد.
+   چیدمان راست‌به‌چپ است: دکمهٔ اصلی سمت راستِ گروه و فلش دستگاه سمت چپ آن.
+   ========================================================================== */
+
+/* ── صندوق شیشه‌ای نوار ──────────────────────────────────────────────── */
+#bottomButtons {
+    padding: 8px 10px !important;
+    gap: 7px !important;
+    border-radius: 19px !important;
+    border: 1px solid rgba(20, 20, 43, 0.1) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    box-shadow:
+        0 1px 2px rgba(20, 20, 43, 0.06),
+        0 18px 44px -24px rgba(20, 20, 43, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    animation: bbDockIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── دکمه‌های تک (چت، دست، نمایش صفحه، خروج) ─────────────────────────── */
+#bottomButtons > button,
+#bottomButtons #participantViewDropdown > button,
+#bottomButtons > #exitDropdown > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    font-size: 1.15rem;
+    line-height: 1;
+    border: 1px solid rgba(20, 20, 43, 0.1) !important;
+    border-radius: 14px;
+    background: #ffffff;
+    color: #1b2335;
+    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.05);
+    transition:
+        transform 190ms cubic-bezier(0.22, 1, 0.36, 1),
+        background 190ms ease,
+        border-color 190ms ease,
+        color 190ms ease,
+        box-shadow 190ms ease;
+}
+
+/* ── گروه‌های دوتایی (دکمهٔ اصلی + فلش انتخاب دستگاه) ─────────────────── */
+#bottomButtons .split-btn {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+    overflow: visible;
+    border: 1px solid rgba(20, 20, 43, 0.1) !important;
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(20, 20, 43, 0.05);
+    transition:
+        transform 190ms cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 190ms ease,
+        box-shadow 190ms ease;
+}
+
+#bottomButtons .split-btn > button,
+#bottomButtons .split-btn .device-dropdown-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0 !important;
+    background: transparent;
+    box-shadow: none;
+    transition:
+        background 190ms ease,
+        color 190ms ease;
+}
+
+/* دکمهٔ اصلی گروه — گوشه‌های بیرونی گرد */
+#bottomButtons .split-btn > button:not(.device-dropdown-toggle) {
+    width: 44px;
+    min-width: 44px;
+    font-size: 1.15rem;
+    line-height: 1;
+    color: #1b2335;
+    border-start-start-radius: 14px;
+    border-end-start-radius: 14px;
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+}
+
+/* فلش دستگاه — چسبیده به دکمه، با خط جداکنندهٔ نازک */
+#bottomButtons .split-btn .device-dropdown-toggle {
+    width: 21px;
+    min-width: 21px;
+    max-width: 21px;
+    border-inline-start: 1px solid rgba(20, 20, 43, 0.09) !important;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    border-start-end-radius: 14px;
+    border-end-end-radius: 14px;
+    color: #6b7189;
+}
+
+#bottomButtons .split-btn .device-dropdown-toggle i {
+    font-size: 0.6rem;
+    line-height: 1;
+    color: inherit !important;
+}
+
+/* منوی نمای شرکت‌کنندگان (تک‌دکمه‌ای) */
+#bottomButtons #participantViewDropdown {
+    display: inline-flex;
+    border-radius: 14px;
+}
+
+#bottomButtons #participantViewDropdown > button {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    border-radius: 14px !important;
+}
+
+/* ── حالت‌ها ─────────────────────────────────────────────────────────── */
+#bottomButtons > button:hover,
+#bottomButtons #participantViewDropdown > button:hover,
+#bottomButtons > #exitDropdown > button:hover {
+    background: #f4f5ff !important;
+    border-color: rgba(99, 102, 241, 0.34) !important;
+    color: #4338ca !important;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -14px rgba(67, 56, 202, 0.75) !important;
+}
+
+#bottomButtons .split-btn:hover {
+    border-color: rgba(99, 102, 241, 0.34) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -14px rgba(67, 56, 202, 0.75);
+}
+
+#bottomButtons .split-btn > button:hover,
+#bottomButtons .split-btn .device-dropdown-toggle:hover {
+    background: #f4f5ff !important;
+    color: #4338ca !important;
+}
+
+#bottomButtons .split-btn > button:not(.device-dropdown-toggle):hover {
+    border-start-start-radius: 14px;
+    border-end-start-radius: 14px;
+}
+
+#bottomButtons .split-btn .device-dropdown-toggle:hover {
+    border-inline-start-color: rgba(99, 102, 241, 0.24) !important;
+}
+
+#bottomButtons > button:active,
+#bottomButtons #participantViewDropdown > button:active,
+#bottomButtons > #exitDropdown > button:active,
+#bottomButtons .split-btn:active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: inset 0 1px 3px rgba(20, 20, 43, 0.18) !important;
+}
+
+#bottomButtons button:focus-visible,
+#bottomButtons .dropdown-menu button:focus-visible {
+    outline: 2px solid rgba(99, 102, 241, 0.75);
+    outline-offset: 2px;
+}
+
+/* میکروفون بسته / دوربین خاموش → صورتیِ ملایم به‌جای پرکردن تندِ قرمز */
+#bottomButtons #startAudioButton,
+#bottomButtons #startVideoButton {
+    background: rgba(225, 29, 72, 0.08) !important;
+    color: #e11d48 !important;
+}
+
+#bottomButtons .split-btn > #startAudioButton:hover,
+#bottomButtons .split-btn > #startVideoButton:hover {
+    background: rgba(225, 29, 72, 0.16) !important;
+    color: #be123c !important;
+}
+
+/* «خروج» همیشه یک دکمهٔ قرمزِ واضح بماند */
+#bottomButtons > #exitDropdown > #exitButton {
+    width: 60px;
+    min-width: 60px;
+    background: #e11d48 !important;
+    border-color: transparent !important;
+}
+
+#bottomButtons #exitButton i {
+    color: #ffffff !important;
+}
+
+#bottomButtons > #exitDropdown > #exitButton:hover,
+#bottomButtons > #exitDropdown > #exitButton[aria-expanded='true'] {
+    background: #be123c !important;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 26px -14px rgba(190, 18, 60, 0.9) !important;
+}
+
+/* چت / شرکت‌کنندگانِ باز */
+#bottomButtons #chatButton.is-active,
+#bottomButtons #participantsButton.is-active {
+    background: rgba(99, 102, 241, 0.12) !important;
+    border-color: rgba(99, 102, 241, 0.34) !important;
+    color: #4338ca !important;
+}
+
+/* دست بلندکردنِ فعال */
+#bottomButtons #raiseHandButton.is-active,
+#bottomButtons #lowerHandButton.is-active {
+    background: rgba(217, 119, 6, 0.14) !important;
+    border-color: rgba(217, 119, 6, 0.36) !important;
+    color: #b45309 !important;
+}
+
+/* ── ورود نرم ────────────────────────────────────────────────────────── */
+@keyframes bbDockIn {
+    from {
+        opacity: 0;
+        translate: 0 16px;
+        scale: 0.97;
+    }
+    to {
+        opacity: 1;
+        translate: 0 0;
+        scale: 1;
+    }
+}
+
+@keyframes bbItemIn {
+    from {
+        opacity: 0;
+        translate: 0 8px;
+    }
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+#bottomButtons > *,
+#bottomButtons .split-btn {
+    animation: bbItemIn 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+#bottomButtons > *:nth-child(1) { animation-delay: 20ms; }
+#bottomButtons > *:nth-child(2) { animation-delay: 45ms; }
+#bottomButtons > *:nth-child(3) { animation-delay: 70ms; }
+#bottomButtons > *:nth-child(4) { animation-delay: 95ms; }
+#bottomButtons > *:nth-child(5) { animation-delay: 120ms; }
+#bottomButtons > *:nth-child(6) { animation-delay: 145ms; }
+#bottomButtons > *:nth-child(7) { animation-delay: 170ms; }
+#bottomButtons > *:nth-child(8) { animation-delay: 195ms; }
+#bottomButtons > *:nth-child(9) { animation-delay: 220ms; }
+#bottomButtons > *:nth-child(n + 10) { animation-delay: 245ms; }
+
+/* روی موبایل فشرده‌تر */
+@media screen and (max-width: 500px) {
+    #bottomButtons {
+        padding: 6px 7px !important;
+        gap: 4px !important;
+        row-gap: 5px !important;
+        flex-wrap: wrap;
+        justify-content: center;
+        border-radius: 16px !important;
+    }
+
+    #bottomButtons > button,
+    #bottomButtons #participantViewDropdown > button,
+    #bottomButtons > #exitDropdown > button {
+        width: 40px !important;
+        min-width: 40px !important;
+        height: 40px !important;
+        min-height: 40px !important;
+        border-radius: 12px;
+    }
+
+    #bottomButtons .split-btn {
+        border-radius: 12px !important;
+    }
+
+    #bottomButtons .split-btn > button:not(.device-dropdown-toggle) {
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+        min-height: 40px;
+        border-start-start-radius: 12px;
+        border-end-start-radius: 12px;
+    }
+
+    #bottomButtons .split-btn .device-dropdown-toggle {
+        width: 19px;
+        min-width: 19px;
+        max-width: 19px;
+        height: 40px;
+        min-height: 40px;
+        border-start-end-radius: 12px;
+        border-end-end-radius: 12px;
+    }
+
+    #bottomButtons > #exitDropdown > #exitButton {
+        width: 52px !important;
+        min-width: 52px !important;
+    }
+}
+
+/* ── کارت «اطلاعات ضبط» (پاپ‌آپ پایان ضبط) ───────────────────────────── */
+.popup-template-copy--left {
+    text-align: right;
+}
+
+.popup-template-copy--left > strong {
+    display: block;
+    color: #111827;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+[data-template-text='recordingMsg'] {
+    margin-top: 10px;
+    color: #475467;
+    font-size: 0.86rem;
+    line-height: 1.9;
+    text-align: right;
+}
+
+.rec-summary {
+    display: grid;
+    gap: 0;
+    width: 100%;
+    max-width: 360px;
+    margin: 16px auto 6px;
+    padding: 0;
+    list-style: none;
+    text-align: right;
+}
+
+.rec-summary li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 2px;
+    border-bottom: 1px dashed rgba(20, 20, 43, 0.12);
+    font-size: 0.92rem;
+    line-height: 1.7;
+}
+
+.rec-summary li:last-child {
+    border-bottom: 0;
+}
+
+.rec-summary__label {
+    flex: 0 0 auto;
+    color: #6b7280;
+    font-weight: 400;
+}
+
+.rec-summary__value {
+    min-width: 0;
+    color: #111827;
+    font-weight: 600;
+    unicode-bidi: plaintext;
+    overflow-wrap: anywhere;
+}
+
+/* دکمهٔ تأیید پاپ‌آپ‌ها در اتاق */
+.swal2-popup .swal2-confirm {
+    border-radius: 12px !important;
+    padding: 10px 30px !important;
+    font-weight: 600;
+    box-shadow: 0 10px 22px -14px rgba(79, 70, 229, 0.95) !important;
+}
+
+.swal2-popup .swal2-confirm:focus,
+.swal2-popup .swal2-confirm:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px rgba(255, 255, 255, 0.9),
+        0 0 0 5px rgba(99, 102, 241, 0.55),
+        0 10px 22px -14px rgba(79, 70, 229, 0.95) !important;
+}
+
+#lastRecordingInfo .rec-summary {
+    margin: 10px auto 4px;
+    max-width: 100%;
+}
+
+#lastRecordingInfo .rec-summary li {
+    padding: 5px 0;
+    font-size: 0.82rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #bottomButtons,
+    #bottomButtons > *,
+    #bottomButtons .split-btn,
+    #bottomButtons button {
+        animation: none !important;
+        transition: none !important;
+    }
+}

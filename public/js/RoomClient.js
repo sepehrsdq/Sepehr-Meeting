@@ -848,8 +848,55 @@ class RoomClient {
             })
             .catch((error) => {
                 console.error('Join error:', error);
-                //
-                popupHtmlMessage(null, image.network, 'Join Room', error, 'center', false, true);
+                // Fatal setup failures (unsupported browser, unusable device, missing
+                // transports) would endlessly loop through the page reload and the
+                // browser "leave site?" prompt: explain clearly and go back home.
+                if (error && error.fatal) {
+                    // The technical detail (error.message, userAgent) is logged to the
+                    // console above; the dialog stays fully Persian and user-friendly.
+                    const noWebRTC =
+                        error.noWebRTC ||
+                        (typeof RTCPeerConnection === 'undefined' && typeof webkitRTCPeerConnection === 'undefined');
+                    if (window.SepehrBrowserGate && typeof SepehrBrowserGate.show === 'function') {
+                        const report = SepehrBrowserGate.check();
+                        // Only an *actually outdated* browser goes through the updater flow.
+                        // A capable browser that just failed to join (server hiccup,
+                        // transport error…) gets the retry card — otherwise the gate
+                        // would re-download the 160MB installer on every reload loop.
+                        if (!report.ok) {
+                            SepehrBrowserGate.show(report);
+                        } else {
+                            // The technical detail is already in the console; the card itself
+                            // stays short and Persian. A raw Error object would print English.
+                            SepehrBrowserGate.showError('برقراری اتصال به جلسه در این لحظه ممکن نشد');
+                        }
+                        return;
+                    }
+                    return popupHtmlMessage(
+                        null,
+                        null,
+                        'ورود به جلسه انجام نشد',
+                        noWebRTC
+                            ? 'این مرورگر از تماس تصویری (WebRTC) پشتیبانی نمی‌کند — احتمالاً یک مرورگر داخلی یا امبدشده است.<br />' +
+                              'لطفاً این آدرس را در Chrome یا Edge ویندوز باز کنید.'
+                            : 'راه‌اندازی موتور رسانه در این مرورگر ممکن نشد.<br />' +
+                              'مرورگرهای پشتیبانی‌شده: Chrome/Edge نسخهٔ ۱۱۱ به بالا، Firefox نسخهٔ ۱۲۰ به بالا.<br />' +
+                              'لطفاً مرورگر را به‌روز کنید و دوباره تلاش کنید.' +
+                              '<br /><br /><small>جزئیات فنی در کنسول مرورگر (F12) ثبت شد.</small>',
+                        'center',
+                        '/',
+                        false
+                    );
+                }
+                popupHtmlMessage(
+                    null,
+                    null,
+                    'ورود به جلسه انجام نشد',
+                    'ارتباط با سرور جلسه برقرار نشد. چند لحظه بعد دوباره تلاش کنید؛ اگر ادامه داشت با پشتیبانی تماس بگیرید.<br /><br /><small>جزئیات فنی در کنسول مرورگر (F12) ثبت شد.</small>',
+                    'center',
+                    '/',
+                    false
+                );
             });
     }
 
@@ -889,18 +936,50 @@ class RoomClient {
     }
 
     async loadDeviceAndInitTransports() {
+        // Embedded browsers (in-app panes, some webviews) ship without WebRTC at all.
+        // Detect that early so the user gets a precise explanation instead of a
+        // cryptic "RTCPeerConnection is not a constructor" deep inside the engine.
+        if (typeof RTCPeerConnection === 'undefined' && typeof webkitRTCPeerConnection === 'undefined') {
+            throw Object.assign(
+                new Error('This browser does not provide WebRTC (RTCPeerConnection). It is likely an embedded browser.'),
+                { fatal: true, noWebRTC: true }
+            );
+        }
+
         // Get Router Capabilities
         const routerRtpCapabilities = await this.socket.request('getRouterRtpCapabilities');
+        if (!routerRtpCapabilities || !Array.isArray(routerRtpCapabilities.headerExtensions)) {
+            throw Object.assign(
+                new Error('The server did not return valid router RTP capabilities. Please try again.'),
+                { fatal: true }
+            );
+        }
         routerRtpCapabilities.headerExtensions = routerRtpCapabilities.headerExtensions.filter(
             (ext) => ext.uri !== 'urn:3gpp:video-orientation'
         );
 
         // Load device
         this.device = await this.loadDevice(routerRtpCapabilities);
+        // loadDevice returns null when this browser cannot run the media engine
+        // (UnsupportedError) or the device failed to load. Abort with a clear
+        // message instead of crashing on this.device.rtpCapabilities below and
+        // leaving a half-joined, black room UI behind.
+        if (!this.device) {
+            // loadDevice recorded the precise underlying reason in this.deviceInitError
+            const reason = this.deviceInitError || 'unknown error';
+            throw Object.assign(new Error(`Failed to initialize the media device on this browser. ${reason}`), {
+                fatal: true,
+            });
+        }
         console.log('07.3 ----> Get Router Rtp Capabilities codecs: ', this.device.rtpCapabilities.codecs);
 
         // Init Send/Receive Transports
         await this.initTransports(this.device);
+        if (!this.producerTransport || !this.consumerTransport) {
+            throw Object.assign(new Error('Failed to establish the media connection to the server.'), {
+                fatal: true,
+            });
+        }
     }
 
     async handleRoomInfo(room) {
@@ -1143,6 +1222,7 @@ class RoomClient {
     async loadDevice(routerRtpCapabilities) {
         if (!routerRtpCapabilities) {
             console.error('Router RTP Capabilities are required to load the device.');
+            this.deviceInitError = 'Router RTP capabilities are missing';
             this.userLog('error', 'Router RTP Capabilities are missing.', 'center', 6000);
             return null;
         }
@@ -1159,9 +1239,11 @@ class RoomClient {
         } catch (error) {
             if (error.name === 'UnsupportedError') {
                 console.error('Browser not supported:', error);
+                this.deviceInitError = `Browser not supported by the WebRTC engine (${navigator.userAgent})`;
                 this.userLog('error', 'Browser not supported. Please try a different browser.', 'center', 6000);
             } else {
                 console.error('Error creating device:', error);
+                this.deviceInitError = `Device creation failed: ${error.message}`;
                 this.userLog('error', `Failed to create device: ${error.message}`, 'center', 6000);
             }
             return null;
@@ -1178,6 +1260,7 @@ class RoomClient {
             );
         } catch (error) {
             console.error('Error loading device with router RTP capabilities:', error);
+            this.deviceInitError = `Device load failed: ${error.message}`;
             this.userLog('error', `Failed to load device: ${error.message}`, 'center', 6000);
             return null;
         }
@@ -2416,16 +2499,16 @@ class RoomClient {
 
     showReconnectAlert(reason) {
         this.renderReconnectBanner({
-            title: 'Connection interrupted',
+            title: window.i18n?.t('Connection interrupted', 'dialogs') || 'Connection interrupted',
             message: this.getDisconnectReasonMessage(reason),
-            meta: 'Reconnecting automatically',
+            meta: window.i18n?.t('Reconnecting automatically', 'dialogs') || 'Reconnecting automatically',
             icon: 'fa-solid fa-plug',
             state: 'reconnecting',
             showSpinner: true,
         });
     }
 
-    showServerRestartAlert(meta = 'Reconnecting automatically') {
+    showServerRestartAlert(meta) {
         const message =
             'Sepehr Meeting is updating. You may be disconnected briefly while the server restarts. Please reconnect in a moment.';
         this.renderReconnectBanner({
@@ -2435,7 +2518,7 @@ class RoomClient {
                     'Sepehr Meeting is updating. You may be disconnected briefly while the server restarts. Please reconnect in a moment.',
                     'dialogs'
                 ) || message,
-            meta,
+            meta: meta || window.i18n?.t('Reconnecting automatically', 'dialogs') || 'Reconnecting automatically',
             icon: 'fa-solid fa-screwdriver-wrench',
             state: 'planned',
             showSpinner: true,
@@ -2444,30 +2527,33 @@ class RoomClient {
 
     showMaxAttemptsAlert() {
         this.renderReconnectBanner({
-            title: 'Unable to reconnect',
-            message: 'Connection could not be restored automatically.',
-            meta: 'Please reconnect now.',
+            title: window.i18n?.t('Unable to reconnect', 'dialogs') || 'Unable to reconnect',
+            message:
+                window.i18n?.t('Connection could not be restored automatically.', 'dialogs') ||
+                'Connection could not be restored automatically.',
+            meta: window.i18n?.t('Please reconnect now.', 'dialogs') || 'Please reconnect now.',
             icon: 'fa-solid fa-triangle-exclamation',
             state: 'failed',
             showSpinner: false,
-            actionLabel: 'Reconnect now',
+            actionLabel: window.i18n?.t('Reconnect now', 'dialogs') || 'Reconnect now',
             onAction: () => this.refreshBrowser(),
         });
     }
 
     getDisconnectReasonMessage(reason) {
+        const t = (key) => window.i18n?.t(key, 'dialogs') || key;
         switch (reason) {
             case 'ping timeout':
-                return 'The network timed out. Trying to reconnect.';
+                return t('The network timed out. Trying to reconnect.');
             case 'transport close':
             case 'transport error':
-                return 'Your network connection changed. Trying to reconnect.';
+                return t('Your network connection changed. Trying to reconnect.');
             case 'io server disconnect':
-                return 'The server closed the connection. Reconnecting now.';
+                return t('The server closed the connection. Reconnecting now.');
             case 'io client disconnect':
-                return 'Connection closed. Reconnecting now.';
+                return t('Connection closed. Reconnecting now.');
             default:
-                return 'Network issue detected. Trying to reconnect.';
+                return t('Network issue detected. Trying to reconnect.');
         }
     }
 
@@ -2557,14 +2643,18 @@ class RoomClient {
         const seconds = Math.max(1, Math.round(delay / 1000));
 
         if (this.serverRestarting) {
-            this.showServerRestartAlert(`Attempt ${attempt}/${this.maxReconnectAttempts} - Retry in ${seconds}s`);
+            this.showServerRestartAlert(
+                `${window.i18n?.t('Attempt', 'dialogs') || 'Attempt'} ${attempt}/${this.maxReconnectAttempts} - ${window.i18n?.t('Retry in {seconds}s', 'dialogs')?.replace('{seconds}', seconds) || `Retry in ${seconds}s`}`
+            );
             return;
         }
 
         this.renderReconnectBanner({
-            title: 'Reconnecting',
-            message: 'Trying to restore your room connection.',
-            meta: `Retry in ${seconds}s`,
+            title: window.i18n?.t('Reconnecting', 'dialogs') || 'Reconnecting',
+            message:
+                window.i18n?.t('Trying to restore your room connection.', 'dialogs') ||
+                'Trying to restore your room connection.',
+            meta: window.i18n?.t('Retry in {seconds}s', 'dialogs')?.replace('{seconds}', seconds) || `Retry in ${seconds}s`,
             icon: 'fa-solid fa-rotate-right',
             state: 'reconnecting',
             showSpinner: true,
@@ -2583,9 +2673,9 @@ class RoomClient {
         }
 
         this.renderReconnectBanner({
-            title: 'Back online',
-            message: 'Connection restored.',
-            meta: 'Reloading',
+            title: window.i18n?.t('Back online', 'dialogs') || 'Back online',
+            message: window.i18n?.t('Connection restored.', 'dialogs') || 'Connection restored.',
+            meta: window.i18n?.t('Reloading', 'dialogs') || 'Reloading',
             icon: 'fa-solid fa-wifi',
             state: 'restored',
             showSpinner: false,
@@ -3708,7 +3798,10 @@ class RoomClient {
             };
 
             if (typeof labelNoiseSuppression !== 'undefined') {
-                labelNoiseSuppression.style.color = processor.noiseSuppressionEnabled ? 'lime' : 'white';
+                labelNoiseSuppression.classList.toggle('is-on', !!processor.noiseSuppressionEnabled);
+                if (labelNoiseSuppression.style && labelNoiseSuppression.style.removeProperty) {
+                    labelNoiseSuppression.style.removeProperty('color');
+                }
             }
 
             return processedStream;
@@ -3724,7 +3817,12 @@ class RoomClient {
         const processedStream = processor?.processedStream;
         processor?.stopProcessing();
         this.handleRNNoiseNotSupported();
-        if (typeof labelNoiseSuppression !== 'undefined') labelNoiseSuppression.style.color = 'white';
+        if (typeof labelNoiseSuppression !== 'undefined' && labelNoiseSuppression) {
+            labelNoiseSuppression.classList.remove('is-on');
+            if (labelNoiseSuppression.style && labelNoiseSuppression.style.removeProperty) {
+                labelNoiseSuppression.style.removeProperty('color');
+            }
+        }
         let nativeSuppressionEnabled = false;
         const track = stream.getAudioTracks()[0];
         try {
@@ -8840,7 +8938,7 @@ class RoomClient {
                 data-to-id="${this.sanitizeHtml(getToId)}" 
                 data-to-name="${this.sanitizeHtml(getToName)}"
                 data-msg-id="${this.sanitizeHtml(getMsgId)}"
-                class="clearfix"
+                class="clearfix ${myMessage ? 'chat-row--own' : 'chat-row--other'}"
             >
                 <div class="message-data ${messageData}">
                     ${positionFirst}
@@ -11215,19 +11313,17 @@ class RoomClient {
         const currentDevice = this.isMobileDevice ? 'MOBILE' : 'PC';
         const blobFileSize = bytesToSize(rawBlob.size);
         const recTimeText = this._lastRecTimeText || '0s';
-        const recType = 'Locally';
+        const recType = 'ضبط محلی';
         const recordingInfo = `
-        <br/><br/>
-        <ul>
-            <li>Stored: ${recType}</li>
-            <li>Time: ${recTimeText}</li>
-            <li>File: ${recFileName}</li>
-            <li>Codecs: ${recCodecs}</li>
-            <li>Size: ${blobFileSize}</li>
+        <ul class="rec-summary">
+            <li><span class="rec-summary__label">محل ذخیره</span><span class="rec-summary__value">در همین دستگاه</span></li>
+            <li><span class="rec-summary__label">مدت ضبط</span><span class="rec-summary__value">${recTimeText}</span></li>
+            <li><span class="rec-summary__label">نام فایل</span><span class="rec-summary__value" dir="ltr">${recFileName}</span></li>
+            <li><span class="rec-summary__label">کدک‌ها</span><span class="rec-summary__value" dir="ltr">${recCodecs}</span></li>
+            <li><span class="rec-summary__label">حجم</span><span class="rec-summary__value">${blobFileSize}</span></li>
         </ul>
-        <br/>
         `;
-        const recordingMsg = `Please wait to be processed, then will be downloaded to your ${currentDevice} device.`;
+        const recordingMsg = 'فایل در حال آماده‌سازی است؛ پس از چند لحظه به‌صورت خودکار روی همین دستگاه دانلود می‌شود.';
 
         this.saveLastRecordingInfo(recordingInfo);
         this.showRecordingInfo(recType, recordingInfo, recordingMsg);
@@ -11255,16 +11351,14 @@ class RoomClient {
     handleServerRecordingStop() {
         console.log('MediaRecorder Stop');
         const recTimeText = this._lastRecTimeText || '0s';
-        const recType = 'Server';
+        const recType = 'ضبط سرور';
         const recordingInfo = `
-        <br/><br/>
-        <ul>
-            <li>Stored: ${recType}</li>
-            <li>Time: ${recTimeText}</li>
-            <li>File: ${this.recServerFileName}</li>
-            <li>Codecs: ${recCodecs}</li>
+        <ul class="rec-summary">
+            <li><span class="rec-summary__label">محل ذخیره</span><span class="rec-summary__value">روی سرور</span></li>
+            <li><span class="rec-summary__label">مدت ضبط</span><span class="rec-summary__value">${recTimeText}</span></li>
+            <li><span class="rec-summary__label">نام فایل</span><span class="rec-summary__value" dir="ltr">${this.recServerFileName}</span></li>
+            <li><span class="rec-summary__label">کدک‌ها</span><span class="rec-summary__value" dir="ltr">${recCodecs}</span></li>
         </ul>
-        <br/>
         `;
         this.saveLastRecordingInfo(recordingInfo);
         this.showRecordingInfo(recType, recordingInfo);
@@ -11293,7 +11387,9 @@ class RoomClient {
             Swal.fire({
                 background: swalBackground,
                 position: 'center',
-                title: 'Recording',
+                title: 'پایان ضبط',
+                confirmButtonText: 'باشه',
+                confirmButtonColor: '#4f46e5',
                 html: renderRoomTemplate('popupRecordingInfoTemplate', {
                     text: {
                         indicator: '🔴',

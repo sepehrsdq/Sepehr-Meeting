@@ -979,6 +979,9 @@ module.exports = class Room {
             iceCandidates: iceCandidates,
             dtlsParameters: dtlsParameters,
             sctpParameters: sctpParameters,
+            // STUN servers for the browser side so clients on NAT'd networks can
+            // gather server-reflexive candidates next to the announced host ones.
+            iceServers: config.mediasoup.iceServers || [],
         };
     }
 

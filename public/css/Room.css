@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap');
 
 :root {
     --room-stage-bg: var(--body-bg);
@@ -402,7 +401,7 @@ body {
 #loadingDiv h1 {
     padding: 10px;
     font-size: 60px;
-    font-family: 'Montserrat';
+    font-family: IRANSans;
     border-radius: 14px;
 }
 #loadingDiv pre,
@@ -410,7 +409,7 @@ body {
     padding: 10px;
     margin: 0 auto;
     max-width: min(90vw, 60ch);
-    font-family: 'Montserrat';
+    font-family: IRANSans;
     font-size: var(--font-base, 15px);
     line-height: var(--lh-base, 1.5);
     color: var(--fg-2, color-mix(in srgb, var(--ink) 78%, transparent));
@@ -2207,7 +2206,7 @@ body {
     z-index: 6;
     position: absolute;
     padding: 12px;
-    width: min(960px, calc(100% - 48px));
+    width: min(1280px, calc(100% - 48px));
     min-height: 480px;
     max-height: 98vh; /* Prevents overflow */
     background: var(--room-panel-raised);
@@ -3005,11 +3004,15 @@ body {
     margin: 0;
 }
 
+/* Material-style track: neutral gray when off, brand accent when on */
 .form-switch.form-switch-md .form-check-input:not(:checked) {
-    border-color: color-mix(in srgb, var(--select-bg) 60%, var(--dd-color) 40%);
-    background-color: color-mix(in srgb, var(--select-bg) 40%, #101314 60%);
-    background-image: radial-gradient(circle, #dce2e0 0 11px, transparent 12px);
+    border-color: color-mix(in srgb, var(--fg-muted) 45%, transparent);
+    background-color: color-mix(in srgb, var(--fg-muted) 26%, transparent);
+    background-image: radial-gradient(circle, #ffffff 0 11px, transparent 12px);
     background-size: 30px 30px;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .form-switch.form-switch-md .form-check-input:checked {
@@ -3017,15 +3020,18 @@ body {
     background-color: var(--room-switch-accent);
     background-image: radial-gradient(circle, var(--room-switch-ink) 0 11px, transparent 12px);
     background-size: 30px 30px;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .form-switch.form-switch-md::after {
-    content: 'OFF';
+    content: 'خاموش';
     position: absolute;
     top: 50%;
-    right: 8px;
-    color: var(--ink);
-    font-size: 0.65rem;
+    right: 9px;
+    color: var(--fg-2);
+    font-size: 0.6rem;
     font-weight: 700;
     line-height: 1;
     pointer-events: none;
@@ -3033,9 +3039,9 @@ body {
 }
 
 .form-switch.form-switch-md:has(.form-check-input:checked)::after {
-    content: 'ON';
+    content: 'روشن';
     right: auto;
-    left: 8px;
+    left: 9px;
     color: var(--room-switch-ink);
 }
 
@@ -5066,7 +5072,7 @@ body {
         padding: 0 !important;
         white-space: nowrap;
         font-size: 0.82rem;
-        font-family: 'Montserrat', sans-serif;
+        font-family: IRANSans, sans-serif;
         font-weight: 600;
     }
     .tabActions {
@@ -5124,7 +5130,7 @@ body {
     margin-left: 8px !important;
     padding: 0 !important;
     white-space: nowrap;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     font-weight: 600;
 }
 
@@ -5735,13 +5741,13 @@ body {
 }
 
 .theme-card.active {
-    border-color: var(--dd-color, #66beff);
+    border-color: var(--room-accent, var(--dd-color, #4f46e5));
     background: color-mix(in srgb, var(--ink) 10%, transparent);
     box-shadow: 0 0 12px rgba(102, 190, 255, 0.2);
 }
 
 .theme-card.active i {
-    color: var(--dd-color, #66beff);
+    color: var(--room-accent, var(--dd-color, #4f46e5));
 }
 
 .theme-card.active span {
@@ -6620,7 +6626,7 @@ body.room-bg-active #videoMediaContainer.mouse-light {
     overflow: hidden;
     --rgb-background: var(--body-bg);
     --color-border-over: var(--body-bg);
-    --font-family: 'Montserrat';
+    --font-family: IRANSans;
 }
 
 .room-emoji-header {
@@ -9645,7 +9651,7 @@ hr {
     -webkit-backdrop-filter: blur(12px);
     box-shadow: var(--box-shadow);
     color: #66beff;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     font-size: 14px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -9687,7 +9693,7 @@ hr {
     -webkit-backdrop-filter: blur(12px);
     box-shadow: var(--box-shadow);
     animation: breakoutSlideDown 0.4s ease-out;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
 }
 
 @keyframes breakoutSlideDown {
@@ -9768,7 +9774,7 @@ hr {
     color: var(--ink);
     font-size: 12px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -9794,7 +9800,7 @@ hr {
     color: var(--ink);
     font-size: 12px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -9832,7 +9838,7 @@ hr {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     box-shadow: var(--box-shadow);
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     overflow: hidden;
 }
 
@@ -10008,7 +10014,7 @@ hr {
     color: var(--ink);
     font-size: 12px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     cursor: pointer;
     transition:
         background 0.18s ease,
@@ -10119,7 +10125,7 @@ hr {
     color: var(--ink);
     font-size: 12px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     padding: 2px 6px;
     width: 100px;
     outline: none;
@@ -10168,7 +10174,7 @@ hr {
     color: var(--ink);
     font-size: 10px;
     font-weight: 500;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     padding: 2px 6px;
     width: 70px;
     outline: none;
@@ -10287,7 +10293,7 @@ hr {
     background: var(--select-bg);
     color: var(--ink);
     font-size: 12px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     outline: none;
     transition: border-color 0.2s;
     min-width: 0;
@@ -10345,7 +10351,7 @@ hr {
     color: var(--breakout-danger);
     font-size: 11px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -10378,7 +10384,7 @@ hr {
     color: var(--breakout-accent);
     font-size: 10px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     cursor: pointer;
     transition:
         background 0.18s ease,
@@ -10405,7 +10411,7 @@ hr {
     color: var(--breakout-danger);
     font-size: 10px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -10429,7 +10435,7 @@ hr {
     color: color-mix(in srgb, var(--ink) 74%, transparent);
     font-size: 10px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -10450,7 +10456,7 @@ hr {
     background: var(--select-bg);
     color: var(--ink);
     font-size: 12px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     outline: none;
     transition: border-color 0.2s;
 }
@@ -10508,7 +10514,7 @@ hr {
     background: var(--select-bg);
     color: var(--ink);
     font-size: 11px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: IRANSans, sans-serif;
     cursor: pointer;
     min-width: 100px;
     flex-shrink: 0;
@@ -10940,7 +10946,7 @@ hr {
     margin: 0 !important;
     padding: 0.85rem 1rem !important;
     border-radius: 999px !important;
-    font-family: 'Montserrat', sans-serif !important;
+    font-family: IRANSans, sans-serif !important;
     font-size: 0.92rem !important;
     font-weight: 700 !important;
     letter-spacing: 0.01em;
