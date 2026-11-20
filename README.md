@@ -12,6 +12,10 @@
 [![UI](https://img.shields.io/badge/UI-Persian%20%7C%20RTL-8b5cf6)](#رابط-کاربری)
 [![License](https://img.shields.io/badge/license-Proprietary-6b7280)](LICENSE)
 
+<img src="docs/demo.gif" alt="دو شرکت‌کننده در یک جلسهٔ سپهر: علی وارد می‌شود، مریم می‌پیوندد، هر دو همدیگر را می‌بینند و چت می‌کنند — رسانه از SFU خودمیزبان" width="100%" />
+
+<sub>یک جلسهٔ واقعی، ضبط‌شده با <code>npm run demo</code> — دو شرکت‌کننده در یک قاب، ویدیو و چت از طریق SFU خودمیزبان.</sub>
+
 </div>
 
 ---

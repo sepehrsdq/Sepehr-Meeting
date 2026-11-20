@@ -18,6 +18,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+        env:
+          # The demo script is not part of CI; skip Playwright's browser download.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: cp app/src/config.template.js app/src/config.js
       - run: npm test
 
